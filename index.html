@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTM Charaktereditor</title>
+    <!-- Tailwind CSS für das Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Babel für die Live-Interpretation von JSX -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&display=swap');
+        body { font-family: 'Crimson Pro', serif; }
+        .dot-shadow { shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06); }
+    </style>
+</head>
+<body class="bg-stone-950 text-stone-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const DotRating = ({ value, max = 5, onChange, min = 0 }) => {
+            return (
+                <div className="flex space-x-1 items-center">
+                    {[...Array(max)].map((_, i) => (
+                        <div
+                            key={i}
+                            onClick={() => {
+                                const newValue = i + 1;
+                                onChange(newValue === value ? Math.max(min, value - 1) : newValue);
+                            }}
+                            className={`w-3.5 h-3.5 rounded-full border border-red-900 cursor-pointer transition-colors
+                                ${i < value ? 'bg-red-700' : 'bg-transparent hover:bg-red-900/30'}`}
+                        />
+                    ))}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [character, setCharacter] = useState({
+                info: {
+                    name: "", spieler: "", chronik: "",
+                    wesen: "", verhalten: "", clan: "",
+                    generation: "", zuflucht: "", konzept: ""
+                },
+                attributes: {
+                    körperlich: { körperkraft: 1, geschick: 1, widerstandsfähigkeit: 1 },
+                    gesellschaftlich: { charisma: 1, manipulation: 1, erscheinungsbild: 1 },
+                    geistig: { wahrnehmung: 1, intelligenz: 1, geistesschärfe: 1 }
+                },
+                abilities: {
+                    talente: {
+                        ausdruck: 0, aufmerksamkeit: 0, ausflüchte: 0, ausweichen: 0,
+                        einschüchtern: 0, empathie: 0, führungsqualitäten: 0, handgemenge: 0,
+                        sportlichkeit: 0, szenekenntnis: 0
+                    },
+                    fertigkeiten: {
+                        etikette: 0, fahren: 0, handwerk: 0, heimlichkeit: 0, nahkampf: 0,
+                        schusswaffen: 0, sicherheit: 0, tierkunde: 0, überleben: 0, vortrag: 0
+                    },
+                    kenntnisse: {
+                        akademisches_wissen: 0, computer: 0, finanzen: 0, gesetzeskenntnis: 0,
+                        linguistik: 0, medizin: 0, nachforschungen: 0, naturwissenschaften: 0,
+                        okkultismus: 0, politik: 0
+                    }
+                },
+                advantages: {
+                    disziplinen: [{ name: "", value: 0 }],
+                    hintergründe: [{ name: "", value: 0 }],
+                    tugenden: { gewissen: 1, selbstbeherrschung: 1, mut: 1 }
+                },
+                status: {
+                    menschlichkeit: 7,
+                    willenskraft: { gesamt: 5, aktuell: 5 },
+                    blutvorrat: 10,
+                    gesundheit: [
+                        { label: "Blaue Flecken", penalty: 0, checked: false },
+                        { label: "Verletzt", penalty: -1, checked: false },
+                        { label: "Schwer Verletzt", penalty: -1, checked: false },
+                        { label: "Verwundet", penalty: -2, checked: false },
+                        { label: "Schwer Verwundet", penalty: -2, checked: false },
+                        { label: "Verkrüppelt", penalty: -5, checked: false },
+                        { label: "Außer Gefecht", penalty: "X", checked: false },
+                    ]
+                }
+            });
+
+            const handleInfoChange = (field, val) => {
+                setCharacter(prev => ({ ...prev, info: { ...prev.info, [field]: val } }));
+            };
+
+            const updateStat = (category, sub, field, val) => {
+                setCharacter(prev => ({
+                    ...prev,
+                    [category]: {
+                        ...prev[category],
+                        [sub]: { ...prev[category][sub], [field]: val }
+                    }
+                }));
+            };
+
+            const updateHealth = (index) => {
+                const newHealth = [...character.status.gesundheit];
+                newHealth[index].checked = !newHealth[index].checked;
+                setCharacter(prev => ({ ...prev, status: { ...prev.status, gesundheit: newHealth } }));
+            };
+
+            const addListEntry = (category, listName) => {
+                setCharacter(prev => ({
+                    ...prev,
+                    [category]: {
+                        ...prev[category],
+                        [listName]: [...prev[category][listName], { name: "", value: 0 }]
+                    }
+                }));
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8">
+                    <div className="max-w-5xl mx-auto border-4 border-red-900 bg-stone-900 p-6 shadow-2xl relative">
+                        <header className="text-center mb-8 border-b border-red-900 pb-4">
+                            <h1 className="text-5xl font-bold tracking-widest text-red-700 uppercase mb-2">Vampire</h1>
+                            <p className="text-xl italic tracking-widest opacity-70">Die Maskerade — Charakterbogen</p>
+                        </header>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-sm">
+                            {Object.entries(character.info).map(([key, val]) => (
+                                <div key={key} className="flex flex-col border-b border-stone-700">
+                                    <label className="text-[10px] uppercase text-red-500 font-bold">{key}</label>
+                                    <input
+                                        type="text"
+                                        value={val}
+                                        onChange={(e) => handleInfoChange(key, e.target.value)}
+                                        className="bg-transparent outline-none border-none py-1 focus:text-white"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="space-y-12">
+                            <section>
+                                <h2 className="text-2xl font-bold border-b-2 border-red-800 mb-4 text-center uppercase tracking-widest text-red-700">Attribute</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    {Object.entries(character.attributes).map(([cat, fields]) => (
+                                        <div key={cat}>
+                                            <h3 className="text-[11px] font-bold text-stone-400 uppercase mb-2 border-b border-stone-700">{cat}</h3>
+                                            {Object.entries(fields).map(([name, val]) => (
+                                                <div key={name} className="flex justify-between items-center mb-1">
+                                                    <span className="capitalize text-sm">{name}</span>
+                                                    <DotRating value={val} min={1} onChange={(v) => updateStat('attributes', cat, name, v)} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            <section>
+                                <h2 className="text-2xl font-bold border-b-2 border-red-800 mb-4 text-center uppercase tracking-widest text-red-700">Fähigkeiten</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    {Object.entries(character.abilities).map(([cat, fields]) => (
+                                        <div key={cat}>
+                                            <h3 className="text-[11px] font-bold text-stone-400 uppercase mb-2 border-b border-stone-700">{cat}</h3>
+                                            {Object.entries(fields).map(([name, val]) => (
+                                                <div key={name} className="flex justify-between items-center mb-1">
+                                                    <span className="capitalize text-sm">{name.replace('_', ' ')}</span>
+                                                    <DotRating value={val} onChange={(v) => updateStat('abilities', cat, name, v)} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4 border-t border-red-900/30">
+                                <section className="md:col-span-2">
+                                    <h2 className="text-xl font-bold border-b border-red-800 mb-4 uppercase text-red-700">Vorteile</h2>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div>
+                                            <div className="flex justify-between items-center border-b border-stone-700 mb-2">
+                                                <h3 className="text-[11px] font-bold text-stone-400 uppercase">Disziplinen</h3>
+                                                <button onClick={() => addListEntry('advantages', 'disziplinen')} className="hover:text-red-500">+</button>
+                                            </div>
+                                            {character.advantages.disziplinen.map((d, i) => (
+                                                <div key={i} className="flex justify-between items-center mb-2">
+                                                    <input className="bg-transparent border-b border-stone-800 text-sm outline-none w-2/3" placeholder="..." value={d.name} onChange={(e) => {
+                                                        const nl = [...character.advantages.disziplinen]; nl[i].name = e.target.value;
+                                                        setCharacter(p => ({ ...p, advantages: { ...p.advantages, disziplinen: nl } }));
+                                                    }} />
+                                                    <DotRating value={d.value} onChange={(v) => {
+                                                        const nl = [...character.advantages.disziplinen]; nl[i].value = v;
+                                                        setCharacter(p => ({ ...p, advantages: { ...p.advantages, disziplinen: nl } }));
+                                                    }} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between items-center border-b border-stone-700 mb-2 text-stone-400">
+                                                <h3 className="text-[11px] font-bold uppercase">Hintergründe</h3>
+                                                <button onClick={() => addListEntry('advantages', 'hintergründe')} className="hover:text-red-500">+</button>
+                                            </div>
+                                            {character.advantages.hintergründe.map((h, i) => (
+                                                <div key={i} className="flex justify-between items-center mb-2 text-sm">
+                                                    <input className="bg-transparent border-b border-stone-800 text-sm outline-none w-2/3" placeholder="..." value={h.name} onChange={(e) => {
+                                                        const nl = [...character.advantages.hintergründe]; nl[i].name = e.target.value;
+                                                        setCharacter(p => ({ ...p, advantages: { ...p.advantages, hintergründe: nl } }));
+                                                    }} />
+                                                    <DotRating value={h.value} onChange={(v) => {
+                                                        const nl = [...character.advantages.hintergründe]; nl[i].value = v;
+                                                        setCharacter(p => ({ ...p, advantages: { ...p.advantages, hintergründe: nl } }));
+                                                    }} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </section>
+                                <section>
+                                    <h2 className="text-xl font-bold border-b border-red-800 mb-4 uppercase text-red-700">Tugenden</h2>
+                                    {Object.entries(character.advantages.tugenden).map(([name, val]) => (
+                                        <div key={name} className="flex justify-between items-center mb-4 text-sm">
+                                            <span className="capitalize font-bold">{name}</span>
+                                            <DotRating value={val} min={1} onChange={(v) => updateStat('advantages', 'tugenden', name, v)} />
+                                        </div>
+                                    ))}
+                                </section>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-red-900">
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-[11px] font-bold text-stone-400 uppercase mb-2 border-b border-stone-700">Menschlichkeit</h3>
+                                        <div className="flex justify-center py-2">
+                                            <DotRating value={character.status.menschlichkeit} max={10} onChange={(v) => setCharacter(p => ({ ...p, status: { ...p.status, menschlichkeit: v } }))} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[11px] font-bold text-stone-400 uppercase mb-2 border-b border-stone-700 flex justify-between">
+                                            <span>Willenskraft</span>
+                                            <span>{character.status.willenskraft.aktuell}/{character.status.willenskraft.gesamt}</span>
+                                        </h3>
+                                        <div className="flex flex-col items-center">
+                                            <DotRating value={character.status.willenskraft.gesamt} max={10} onChange={(v) => setCharacter(p => ({ ...p, status: { ...p.status, willenskraft: { ...p.status.willenskraft, gesamt: v } } }))} />
+                                            <div className="flex space-x-1 mt-2">
+                                                {[...Array(10)].map((_, i) => (
+                                                    <div key={i} onClick={() => setCharacter(p => ({ ...p, status: { ...p.status, willenskraft: { ...p.status.willenskraft, aktuell: i < p.status.willenskraft.gesamt ? i + 1 : p.status.willenskraft.aktuell } } }))}
+                                                        className={`w-5 h-5 border border-stone-600 flex items-center justify-center cursor-pointer text-[10px] ${i < character.status.willenskraft.aktuell ? 'bg-stone-200 text-stone-900' : ''}`}>
+                                                        {i < character.status.willenskraft.gesamt && "X"}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[11px] font-bold text-stone-400 uppercase mb-2 border-b border-stone-700">Blutvorrat</h3>
+                                        <div className="grid grid-cols-10 gap-1">
+                                            {[...Array(20)].map((_, i) => (
+                                                <div key={i} onClick={() => setCharacter(p => ({ ...p, status: { ...p.status, blutvorrat: i + 1 } }))}
+                                                    className={`h-4 border border-red-900 rounded-sm cursor-pointer transition-all ${i < character.status.blutvorrat ? 'bg-red-700 shadow-lg scale-95' : 'bg-stone-800'}`} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-stone-800/20 p-4 border border-stone-700 rounded">
+                                    <h3 className="text-[11px] font-bold text-stone-400 uppercase mb-4 border-b border-stone-700">Gesundheit</h3>
+                                    <div className="space-y-1.5">
+                                        {character.status.gesundheit.map((h, i) => (
+                                            <div key={i} className="flex justify-between items-center text-xs">
+                                                <div className="flex-1 flex justify-between pr-4">
+                                                    <span>{h.label}</span>
+                                                    <span className="text-red-500 italic opacity-60">{h.penalty !== 0 ? h.penalty : ''}</span>
+                                                </div>
+                                                <div onClick={() => updateHealth(i)} className={`w-4 h-4 border border-red-900 flex items-center justify-center cursor-pointer ${h.checked ? 'bg-red-800 shadow-inner rotate-12' : ''}`}>
+                                                    {h.checked && "X"}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <footer className="mt-12 text-[9px] text-stone-600 text-center uppercase">
+                            Vampire: The Masquerade © White Wolf Publishing
+                        </footer>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
