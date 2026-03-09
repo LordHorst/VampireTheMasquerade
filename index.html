@@ -35,6 +35,12 @@
             box-shadow: 0 0 5px rgba(52, 211, 153, 0.4);
         }
 
+        .dot-disabled {
+            background: #1a2e25;
+            border-color: #0d1a14;
+            cursor: not-allowed !important;
+        }
+
         input::placeholder, textarea::placeholder {
             color: rgba(100, 116, 139, 0.5);
         }
@@ -67,7 +73,6 @@
         select option {
             background-color: #051a11;
             color: #d1d5db;
-            font-weight: normal;
         }
     </style>
 </head>
@@ -75,20 +80,22 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect } = React;
 
-        const DotRating = ({ value, max = 5, onChange, min = 0 }) => {
+        const DotRating = ({ value, max = 5, onChange, min = 0, disabled = false }) => {
             return (
-                <div className="flex space-x-1.5 items-center">
+                <div className={`flex space-x-1.5 items-center ${disabled ? 'opacity-30' : ''}`}>
                     {[...Array(max)].map((_, i) => (
                         <div
                             key={i}
                             onClick={() => {
+                                if (disabled) return;
                                 const newValue = i + 1;
                                 onChange(newValue === value ? Math.max(min, value - 1) : newValue);
                             }}
-                            className={`w-3.5 h-3.5 rounded-full border border-emerald-900 cursor-pointer transition-all duration-300
-                                ${i < value ? 'dot-filled scale-110' : 'bg-black/40 hover:bg-emerald-900/40'}`}
+                            className={`w-3.5 h-3.5 rounded-full border border-emerald-900 transition-all duration-300
+                                ${disabled ? 'dot-disabled' : 'cursor-pointer'}
+                                ${i < value && !disabled ? 'dot-filled scale-110' : 'bg-black/40 hover:bg-emerald-900/40'}`}
                         />
                     ))}
                 </div>
@@ -148,6 +155,40 @@
                 }
             });
 
+            // Clan-Effekte: Nosferatu Erscheinungsbild auf 0 setzen, bei Wechsel wieder auf 1
+            useEffect(() => {
+                setCharacter(p => {
+                    const isNosferatu = p.info.Clan === "Nosferatu";
+                    const currentErscheinungsbild = p.attributes.gesellschaftlich.Erscheinungsbild;
+
+                    if (isNosferatu && currentErscheinungsbild !== 0) {
+                        return {
+                            ...p,
+                            attributes: {
+                                ...p.attributes,
+                                gesellschaftlich: {
+                                    ...p.attributes.gesellschaftlich,
+                                    Erscheinungsbild: 0
+                                }
+                            }
+                        };
+                    } else if (!isNosferatu && currentErscheinungsbild === 0) {
+                        // Clan wurde gewechselt, Erscheinungsbild muss auf das Minimum 1 gesetzt werden
+                        return {
+                            ...p,
+                            attributes: {
+                                ...p.attributes,
+                                gesellschaftlich: {
+                                    ...p.attributes.gesellschaftlich,
+                                    Erscheinungsbild: 1
+                                }
+                            }
+                        };
+                    }
+                    return p;
+                });
+            }, [character.info.Clan]);
+
             const updateInfo = (f, v) => setCharacter(p => ({ ...p, info: { ...p.info, [f]: v } }));
             
             const updateStat = (cat, sub, f, v) => setCharacter(p => ({
@@ -161,6 +202,8 @@
             };
 
             const updateExtra = (f, v) => setCharacter(p => ({ ...p, extra: { ...p.extra, [f]: v } }));
+
+            const isNosferatu = character.info.Clan === "Nosferatu";
 
             return (
                 <div className="max-w-5xl mx-auto revised-card p-8 md:p-12 mb-12">
@@ -222,12 +265,20 @@
                                 {Object.entries(character.attributes).map(([cat, fields]) => (
                                     <div key={cat} className="space-y-2">
                                         <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-3 text-center tracking-tighter italic border-b border-emerald-900/20">{cat}</h3>
-                                        {Object.entries(fields).map(([name, val]) => (
-                                            <div key={name} className="flex justify-between items-center group">
-                                                <span className="text-sm group-hover:text-emerald-400 transition-colors">{name}</span>
-                                                <DotRating value={val} min={1} onChange={(v) => updateStat('attributes', cat, name, v)} />
-                                            </div>
-                                        ))}
+                                        {Object.entries(fields).map(([name, val]) => {
+                                            const isDisabled = name === "Erscheinungsbild" && isNosferatu;
+                                            return (
+                                                <div key={name} className={`flex justify-between items-center group ${isDisabled ? 'text-stone-600 italic' : ''}`}>
+                                                    <span className={`text-sm ${!isDisabled && 'group-hover:text-emerald-400'} transition-colors`}>{name}</span>
+                                                    <DotRating 
+                                                        value={val} 
+                                                        min={isDisabled ? 0 : 1} 
+                                                        disabled={isDisabled}
+                                                        onChange={(v) => updateStat('attributes', cat, name, v)} 
+                                                    />
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ))}
                             </div>
@@ -242,7 +293,7 @@
                                         <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-3 text-center italic border-b border-emerald-900/20">{cat}</h3>
                                         {Object.entries(fields).map(([name, val]) => (
                                             <div key={name} className="flex justify-between items-center group">
-                                                <span className="text-xs group-hover:text-emerald-400 transition-colors">{name.replace('_', ' ')}</span>
+                                                <span className="text-xs group-hover:text-emerald-400 transition-colors">{name.replace(/_/g, ' ')}</span>
                                                 <DotRating value={val} onChange={(v) => updateStat('abilities', cat, name, v)} />
                                             </div>
                                         ))}
@@ -331,7 +382,6 @@
                                     </div>
                                 </div>
 
-                                {/* NEU: Vorzüge & Schwächen */}
                                 <div className="pt-4">
                                     <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-3 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Vorzüge / Schwächen</h3>
                                     <textarea 
@@ -362,7 +412,6 @@
                                     </div>
                                 </div>
 
-                                {/* NEU: Erfahrung */}
                                 <div className="p-6 health-box rounded-lg shadow-inner">
                                     <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-4 tracking-widest border-b border-emerald-900/50 pb-2 italic">Erfahrung</h3>
                                     <textarea 
