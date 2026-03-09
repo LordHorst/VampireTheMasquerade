@@ -15,7 +15,6 @@
         
         body { 
             font-family: 'Crimson Pro', serif; 
-            /* Revised Edition Marmor-Hintergrund Simulation */
             background: radial-gradient(circle at center, #0a2f1f 0%, #051a11 50%, #020806 100%);
             background-attachment: fixed;
         }
@@ -24,14 +23,13 @@
             background-color: rgba(5, 20, 15, 0.95);
             border: 2px solid #1a4d36;
             box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 50px rgba(0, 50, 30, 0.2);
-            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png'); /* Subtile Textur */
+            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
         }
 
         .header-font {
             font-family: 'UnifrakturMaguntia', serif;
         }
 
-        /* Spezial-Dots für Revised Look (Grünlich schimmernd) */
         .dot-filled {
             background: radial-gradient(circle at 30% 30%, #34d399, #065f46);
             box-shadow: 0 0 5px rgba(52, 211, 153, 0.4);
@@ -50,6 +48,26 @@
             resize: none;
             scrollbar-width: thin;
             scrollbar-color: #1a4d36 transparent;
+        }
+
+        select {
+            background-color: #051a11;
+            color: #d1d5db;
+            border-bottom: 1px solid rgba(6, 95, 70, 0.3);
+            cursor: pointer;
+        }
+        
+        select optgroup {
+            background-color: #020806;
+            color: #10b981;
+            font-style: normal;
+            font-weight: bold;
+        }
+
+        select option {
+            background-color: #051a11;
+            color: #d1d5db;
+            font-weight: normal;
         }
     </style>
 </head>
@@ -85,14 +103,14 @@
                     Generation: "", Zuflucht: "", Konzept: ""
                 },
                 attributes: {
-                    körperlich: { Körperkraft: 1, Geschick: 1, Widerstand: 1 },
+                    körperlich: { Körperkraft: 1, Geschick: 1, Widerstandsfähigkeit: 1 },
                     gesellschaftlich: { Charisma: 1, Manipulation: 1, Erscheinungsbild: 1 },
                     geistig: { Wahrnehmung: 1, Intelligenz: 1, Geistesschärfe: 1 }
                 },
                 abilities: {
                     talente: {
                         Ausdruck: 0, Aufmerksamkeit: 0, Ausflüchte: 0, Ausweichen: 0,
-                        Einschüchtern: 0, Empathie: 0, Führung: 0, Handgemenge: 0,
+                        Einschüchtern: 0, Empathie: 0, Führungsqualitäten: 0, Handgemenge: 0,
                         Sportlichkeit: 0, Szenekenntnis: 0
                     },
                     fertigkeiten: {
@@ -100,14 +118,14 @@
                         Schusswaffen: 0, Sicherheit: 0, Tierkunde: 0, Überleben: 0, Vortrag: 0
                     },
                     kenntnisse: {
-                        Akademik: 0, Computer: 0, Finanzen: 0, Gesetze: 0,
-                        Linguistik: 0, Medizin: 0, Nachforschung: 0, Naturwiss: 0,
+                        Akademisches_Wissen: 0, Computer: 0, Finanzen: 0, Gesetzeskenntnis: 0,
+                        Linguistik: 0, Medizin: 0, Nachforschungen: 0, Naturwissenschaften: 0,
                         Okkultismus: 0, Politik: 0
                     }
                 },
                 advantages: {
-                    disziplinen: [{ name: "", value: 0 }],
-                    hintergründe: [{ name: "", value: 0 }],
+                    disziplinen: [{ name: "", value: 0 }, { name: "", value: 0 }, { name: "", value: 0 }],
+                    hintergründe: [{ name: "", value: 0 }, { name: "", value: 0 }, { name: "", value: 0 }],
                     tugenden: { Gewissen: 1, Selbstbeherrschung: 1, Mut: 1 }
                 },
                 status: {
@@ -146,7 +164,6 @@
 
             return (
                 <div className="max-w-5xl mx-auto revised-card p-8 md:p-12 mb-12">
-                    {/* Header im Revised Style */}
                     <header className="text-center mb-12 border-b border-emerald-900/50 pb-6">
                         <h1 className="text-6xl font-bold tracking-[0.2em] text-emerald-500 uppercase mb-2 drop-shadow-lg header-font">Vampire</h1>
                         <p className="text-sm tracking-[0.5em] text-emerald-700 font-bold uppercase">Die Maskerade</p>
@@ -157,13 +174,42 @@
                         {Object.entries(character.info).map(([key, val]) => (
                             <div key={key} className="flex flex-col border-b border-emerald-900/30">
                                 <label className="text-[10px] uppercase text-emerald-600 font-bold tracking-widest">{key}</label>
-                                <input
-                                    type="text"
-                                    value={val}
-                                    onChange={(e) => updateInfo(key, e.target.value)}
-                                    className="bg-transparent outline-none py-1 text-stone-100 placeholder-stone-700"
-                                    placeholder="____________________"
-                                />
+                                {key === "Clan" ? (
+                                    <select 
+                                        value={val} 
+                                        onChange={(e) => updateInfo(key, e.target.value)}
+                                        className="bg-transparent outline-none py-1 text-stone-100"
+                                    >
+                                        <option value="" disabled>Wähle einen Clan...</option>
+                                        <optgroup label="Camarilla">
+                                            <option value="Brujah">Brujah</option>
+                                            <option value="Gangrel">Gangrel</option>
+                                            <option value="Malkavian">Malkavian</option>
+                                            <option value="Nosferatu">Nosferatu</option>
+                                            <option value="Toreador">Toreador</option>
+                                            <option value="Tremere">Tremere</option>
+                                            <option value="Ventrue">Ventrue</option>
+                                        </optgroup>
+                                        <optgroup label="Sabbat">
+                                            <option value="Lasombra">Lasombra</option>
+                                            <option value="Tzimisce">Tzimisce</option>
+                                        </optgroup>
+                                        <optgroup label="Unabhängige">
+                                            <option value="Assamite">Assamite</option>
+                                            <option value="Followers of Set">Followers of Set</option>
+                                            <option value="Giovanni">Giovanni</option>
+                                            <option value="Ravnos">Ravnos</option>
+                                        </optgroup>
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={val}
+                                        onChange={(e) => updateInfo(key, e.target.value)}
+                                        className="bg-transparent outline-none py-1 text-stone-100 placeholder-stone-700"
+                                        placeholder="____________________"
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -196,7 +242,7 @@
                                         <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-3 text-center italic border-b border-emerald-900/20">{cat}</h3>
                                         {Object.entries(fields).map(([name, val]) => (
                                             <div key={name} className="flex justify-between items-center group">
-                                                <span className="text-xs group-hover:text-emerald-400 transition-colors">{name}</span>
+                                                <span className="text-xs group-hover:text-emerald-400 transition-colors">{name.replace('_', ' ')}</span>
                                                 <DotRating value={val} onChange={(v) => updateStat('abilities', cat, name, v)} />
                                             </div>
                                         ))}
@@ -214,7 +260,7 @@
                                         <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-4 border-b border-emerald-900/20">Disziplinen</h3>
                                         {character.advantages.disziplinen.map((d, i) => (
                                             <div key={i} className="flex justify-between items-center mb-3">
-                                                <input className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3 focus:border-emerald-500" placeholder="z.B. Celerity" />
+                                                <input className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3 focus:border-emerald-500" placeholder="________________" />
                                                 <DotRating value={d.value} onChange={(v) => {
                                                     const nl = [...character.advantages.disziplinen]; nl[i].value = v;
                                                     setCharacter(p => ({ ...p, advantages: { ...p.advantages, disziplinen: nl } }));
@@ -226,7 +272,7 @@
                                         <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-4 border-b border-emerald-900/20">Hintergründe</h3>
                                         {character.advantages.hintergründe.map((h, i) => (
                                             <div key={i} className="flex justify-between items-center mb-3">
-                                                <input className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3 focus:border-emerald-500" placeholder="z.B. Resources" />
+                                                <input className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3 focus:border-emerald-500" placeholder="________________" />
                                                 <DotRating value={h.value} onChange={(v) => {
                                                     const nl = [...character.advantages.hintergründe]; nl[i].value = v;
                                                     setCharacter(p => ({ ...p, advantages: { ...p.advantages, hintergründe: nl } }));
@@ -287,7 +333,7 @@
 
                                 {/* NEU: Vorzüge & Schwächen */}
                                 <div className="pt-4">
-                                    <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-3 tracking-widest border-b border-emerald-900/50 pb-2 italic">Vorzüge / Schwächen</h3>
+                                    <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-3 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Vorzüge / Schwächen</h3>
                                     <textarea 
                                         className="w-full h-48 p-3 text-sm text-stone-200 text-box rounded outline-none focus:border-emerald-500 transition-colors"
                                         placeholder="Deine Vorzüge und Schwächen hier eintragen..."
