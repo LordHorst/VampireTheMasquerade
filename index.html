@@ -244,6 +244,53 @@
                 updateStat('abilities', cat, name, newValue);
             };
 
+            const handleDisciplineChange = (index, newValue) => {
+                const oldValue = character.advantages.disziplinen[index].value;
+                if (newValue <= oldValue) {
+                    const nl = [...character.advantages.disziplinen];
+                    nl[index].value = newValue;
+                    setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
+                    return;
+                }
+                if (calcDisziplinenSpent() + (newValue - oldValue) > 3) {
+                    showToast("Regelverstoß: Maximal 3 Punkte für Disziplinen!");
+                    return;
+                }
+                const nl = [...character.advantages.disziplinen];
+                nl[index].value = newValue;
+                setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
+            };
+
+            const handleBackgroundChange = (index, newValue) => {
+                const oldValue = character.advantages.hintergründe[index].value;
+                if (newValue <= oldValue) {
+                    const nl = [...character.advantages.hintergründe];
+                    nl[index].value = newValue;
+                    setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
+                    return;
+                }
+                if (calcHintergruendeSpent() + (newValue - oldValue) > 5) {
+                    showToast("Regelverstoß: Maximal 5 Punkte für Hintergründe!");
+                    return;
+                }
+                const nl = [...character.advantages.hintergründe];
+                nl[index].value = newValue;
+                setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
+            };
+
+            const handleVirtueChange = (name, newValue) => {
+                const oldValue = character.advantages.tugenden[name];
+                if (newValue <= oldValue) {
+                    updateStat('advantages', 'tugenden', name, newValue);
+                    return;
+                }
+                if (calcTugendenSpent() + (newValue - oldValue) > 7) {
+                    showToast("Regelverstoß: Maximal 7 Punkte für Tugenden!");
+                    return;
+                }
+                updateStat('advantages', 'tugenden', name, newValue);
+            };
+
             const updateHealth = (i) => {
                 const nh = [...character.status.gesundheit];
                 nh[i].checked = !nh[i].checked;
@@ -280,7 +327,7 @@
                         <p className="text-sm tracking-[0.5em] text-emerald-700 font-bold uppercase">Die Maskerade</p>
                     </header>
 
-                    {/* --- HIER WIRD DIE CLAN-AUSWAHL GERENDERT --- */}
+                    {/* --- INFO BEREICH --- */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 mb-12">
                         {Object.entries(character.info).map(([key, val]) => (
                             <div key={key} className="flex flex-col border-b border-emerald-900/30">
@@ -292,7 +339,6 @@
                                         className="bg-transparent outline-none py-1 text-stone-100"
                                     >
                                         <option value="" disabled>Wähle Clan...</option>
-                                        {/* Gruppierung der Clans */}
                                         {Object.entries(clans).map(([group, list]) => (
                                             <optgroup key={group} label={group}>
                                                 {list.map(c => <option key={c} value={c}>{c}</option>)}
@@ -306,7 +352,6 @@
                         ))}
                     </div>
 
-                    {/* Rest des Charakterbogens (gekürzt für Übersichtlichkeit im Code-Block) */}
                     <div className="space-y-16">
                         {/* Attribute Section */}
                         <section>
@@ -352,46 +397,45 @@
                             </div>
                         </section>
 
-                        {/* Vorteile & Status Section */}
+                        {/* Vorteile Section */}
                         <section>
                             <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
                                 <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Vorteile</h2>
                                 <button onClick={() => setShowAdvInfo(!showAdvInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
                             </div>
-                            <InfoBox isOpen={showAdvInfo} text="Vorteile werden verteilt nach dem Schema Disziplinen: 3, Gesellschaftlich: 5, Geistig: 7 (zusätzlich zum freien ersten Punkt)." />
+                            <InfoBox isOpen={showAdvInfo} text="Vorteile werden verteilt nach dem Schema Disziplinen: 3, Hintergründe: 5, Tugenden: 7 (zusätzlich zum freien ersten Punkt)." />
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                                {/* Disziplinen, Hintergründe, Tugenden */}
                                 <div>
-                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Disziplinen</h3>
+                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Disziplinen ({calcDisziplinenSpent()})</h3>
                                     {character.advantages.disziplinen.map((d, i) => (
                                         <div key={i} className="flex justify-between items-center mb-3">
                                             <input value={d.name} onChange={(e) => {const nl = [...character.advantages.disziplinen]; nl[i].name = e.target.value; setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}))}} className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3" />
-                                            <DotRating value={d.value} onChange={(v) => {const nl = [...character.advantages.disziplinen]; nl[i].value = v; setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));}} />
+                                            <DotRating value={d.value} onChange={(v) => handleDisciplineChange(i, v)} />
                                         </div>
                                     ))}
                                 </div>
                                 <div>
-                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Hintergründe</h3>
+                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Hintergründe ({calcHintergruendeSpent()})</h3>
                                     {character.advantages.hintergründe.map((h, i) => (
                                         <div key={i} className="flex justify-between items-center mb-3">
                                             <input value={h.name} onChange={(e) => {const nl = [...character.advantages.hintergründe]; nl[i].name = e.target.value; setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}))}} className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3" />
-                                            <DotRating value={h.value} onChange={(v) => {const nl = [...character.advantages.hintergründe]; nl[i].value = v; setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));}} />
+                                            <DotRating value={h.value} onChange={(v) => handleBackgroundChange(i, v)} />
                                         </div>
                                     ))}
                                 </div>
                                 <div>
-                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Tugenden</h3>
+                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Tugenden ({calcTugendenSpent()})</h3>
                                     {Object.entries(character.advantages.tugenden).map(([name, val]) => (
                                         <div key={name} className="flex justify-between items-center mb-4">
                                             <span className="text-sm font-bold text-stone-400">{name}</span>
-                                            <DotRating value={val} min={1} onChange={(v) => updateStat('advantages', 'tugenden', name, v)} />
+                                            <DotRating value={val} min={1} onChange={(v) => handleVirtueChange(name, v)} />
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </section>
                         
-                         {/* Status */}
+                         {/* Status Section */}
                         <section>
                             <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6 mt-12">
                                 <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Status</h2>
@@ -425,7 +469,6 @@
                                         </div>
                                     </div>
                                     
-                                    {/* Vorzüge & Schwächen NEU positioniert */}
                                     <div>
                                         <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4 mt-8">Vorzüge / Schwächen</h3>
                                         <div className="space-y-3">
@@ -473,7 +516,7 @@
                                         <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-6 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Gesundheit</h3>
                                         <div className="space-y-2.5">
                                             {character.status.gesundheit.map((h, i) => (
-                                                <div key={i} className="flex justify-between items-center text-xs cursor-pointer" >
+                                                <div key={i} className="flex justify-between items-center text-xs" >
                                                     <span className="font-semibold uppercase tracking-tighter">{h.label}</span>
                                                     <div className="flex items-center space-x-4">
                                                         <span className="text-emerald-600 font-bold w-4">{h.penalty !== 0 ? h.penalty : ""}</span>
@@ -486,7 +529,6 @@
                                         </div>
                                     </div>
                                     
-                                    {/* Erfahrung NEU positioniert */}
                                     <div className="space-y-2 pt-4">
                                         <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest text-center border-b border-emerald-900/20 pb-2 mb-4">Erfahrung</h3>
                                         <div className="flex justify-center">
