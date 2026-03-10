@@ -410,8 +410,7 @@
                                         <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-6 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Gesundheit</h3>
                                         <div className="space-y-2.5">
                                             {character.status.gesundheit.map((h, i) => (
-                                                <div key={i} className="flex justify-between items-center text-xs cursor-pointer" onClick={() => if (h.disabled) return;
-    updateHealth(i);}>
+                                                <div key={i} className="flex justify-between items-center text-xs cursor-pointer" >
                                                     <span className="font-semibold uppercase tracking-tighter">{h.label}</span>
                                                     <div className="flex items-center space-x-4">
                                                         <span className="text-emerald-600 font-bold w-4">{h.penalty !== 0 ? h.penalty : ""}</span>
