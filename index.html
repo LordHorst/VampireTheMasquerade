@@ -1,563 +1,578 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VTM Charaktereditor - Revised Edition</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & Babel -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=UnifrakturMaguntia&display=swap');
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Info, AlertCircle, ChevronRight } from 'lucide-react';
+
+/**
+ * CLAN DEFINITIONS
+ * Enthält Camarilla, Sabbat und Unabhängige Clans
+ */
+const ClanData = {
+  // --- Camarilla ---
+  "Brujah": {
+    display: "Brujah",
+    disciplines: ["Geschwindigkeit", "Stärke", "Präsenz"],
+    description: "Rebellen und Krieger-Gelehrte."
+  },
+  "Gangrel": {
+    display: "Gangrel",
+    disciplines: ["Tierhaftigkeit", "Seelenstärke", "Gestaltwandel"],
+    description: "Einsame Wölfe und Nomaden."
+  },
+  "Malkavianer": {
+    display: "Malkavianer",
+    disciplines: ["Auspex", "Irrsinn", "Verdunkelung"],
+    description: "Wahnsinnige Seher."
+  },
+  "Nosferatu": {
+    display: "Nosferatu",
+    disciplines: ["Tierhaftigkeit", "Verdunkelung", "Stärke"],
+    description: "Verunstaltete Informationbroker."
+  },
+  "Toreador": {
+    display: "Toreador",
+    disciplines: ["Auspex", "Geschwindigkeit", "Präsenz"],
+    description: "Künstler und Hedonisten."
+  },
+  "Tremere": {
+    display: "Tremere",
+    disciplines: ["Auspex", "Beherrschung", "Thaumaturgie"],
+    description: "Blutmagier."
+  },
+  "Ventrue": {
+    display: "Ventrue",
+    disciplines: ["Beherrschung", "Präsenz", "Seelenstärke"],
+    description: "Blauäugige Herrscher."
+  },
+  // --- Sabbat ---
+  "Lasombra": {
+    display: "Lasombra",
+    disciplines: ["Beherrschung", "Stärke", "Schattenspiele"],
+    description: "Meister der Schatten und des Sabbats."
+  },
+  "Tzimisce": {
+    display: "Tzimisce",
+    disciplines: ["Tierhaftigkeit", "Auspex", "Fleischformen"],
+    description: "Metamorphe Bildhauer des Fleisches."
+  },
+  // --- Unabhängige ---
+  "Assamiten": {
+    display: "Assamiten",
+    disciplines: ["Verdunkelung", "Geschwindigkeit", "Quietus"],
+    description: "Lautlose Meuchelmörder."
+  },
+  "Giovanni": {
+    display: "Giovanni",
+    disciplines: ["Beherrschung", "Stärke", "Nekromantie"],
+    description: "Nekromanten und Inzest-Clan."
+  },
+  "Jünger des Set": {
+    display: "Jünger des Set",
+    disciplines: ["Verdunkelung", "Präsenz", "Serpentis"],
+    description: "Korrupte Diener der Schlange."
+  },
+  "Ravnos": {
+    display: "Ravnos",
+    disciplines: ["Tierhaftigkeit", "Seelenstärke", "Seelenstärke"], // Klassisch: Chimerstry/Seelenstärke/Tierhaftigkeit
+    description: "Meister der Täuschung und Illusion."
+  }
+};
+
+const App = () => {
+  const [character, setCharacter] = useState({
+    info: {
+      Name: "", Spieler: "", Chronik: "",
+      Wesen: "", Verhalten: "", Clan: "",
+      Generation: "", Zuflucht: "", Konzept: ""
+    },
+    attributes: {
+      körperlich: { Körperkraft: 1, Geschick: 1, Widerstandsfähigkeit: 1 },
+      gesellschaftlich: { Charisma: 1, Manipulation: 1, Erscheinungsbild: 1 },
+      geistig: { Wahrnehmung: 1, Intelligenz: 1, Geistesschärfe: 1 }
+    },
+    abilities: {
+      talente: {
+        Ausdruck: 0, Aufmerksamkeit: 0, Ausflüchte: 0, Ausweichen: 0,
+        Einschüchtern: 0, Empathie: 0, Führungsqualitäten: 0, Handgemenge: 0,
+        Sportlichkeit: 0, Szenekenntnis: 0
+      },
+      fertigkeiten: {
+        Etikette: 0, Fahren: 0, Handwerk: 0, Heimlichkeit: 0, Nahkampf: 0,
+        Schusswaffen: 0, Sicherheit: 0, Tierkunde: 0, Überleben: 0, Vortrag: 0
+      },
+      kenntnisse: {
+        Akademisches_Wissen: 0, Computer: 0, Finanzen: 0, Gesetzeskenntnis: 0,
+        Linguistik: 0, Medizin: 0, Nachforschungen: 0, Naturwissenschaften: 0,
+        Okkultismus: 0, Politik: 0
+      }
+    },
+    advantages: {
+      disziplinen: [
+        { name: "", value: 0 },
+        { name: "", value: 0 },
+        { name: "", value: 0 }
+      ],
+      hintergründe: [
+        { name: "", value: 0 },
+        { name: "", value: 0 },
+        { name: "", value: 0 },
+        { name: "", value: 0 },
+        { name: "", value: 0 }
+      ],
+      tugenden: { Gewissen: 1, Selbstbeherrschung: 1, Mut: 1 }
+    },
+    status: {
+        menschlichkeit: 7,
+        blutvorrat: 10,
+        gesundheit: [
+            { label: "Blaue Flecken", penalty: 0, checked: false },
+            { label: "Verletzt", penalty: -1, checked: false },
+            { label: "Schwer Verletzt", penalty: -1, checked: false },
+            { label: "Verwundet", penalty: -2, checked: false },
+            { label: "Schwer Verwundet", penalty: -2, checked: false },
+            { label: "Verkrüppelt", penalty: -5, checked: false },
+            { label: "Außer Gefecht", penalty: "X", checked: false },
+        ]
+    },
+    extra: { erfahrung: "", vorzügeSchwächen: [] }
+  });
+
+  const [showAttrInfo, setShowAttrInfo] = useState(false);
+  const [showAbilInfo, setShowAbilInfo] = useState(false);
+  const [showAdvInfo, setShowAdvInfo] = useState(false);
+  const [showAddTypeSelection, setShowAddTypeSelection] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  const timeoutRef = useRef(null);
+
+  const showToast = (msg) => {
+    setNotification(msg);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setNotification(null), 3500);
+  };
+
+  // --- LOGIK: CLAN-WECHSEL ---
+  const handleClanChange = (newClan) => {
+    const clanTemplate = ClanData[newClan];
+    
+    setCharacter(prev => {
+      const updatedInfo = { ...prev.info, Clan: newClan };
+      const updatedAdvantages = { ...prev.advantages };
+
+      // Automatisches Befüllen der Disziplinen
+      if (clanTemplate && clanTemplate.disciplines) {
+        updatedAdvantages.disziplinen = clanTemplate.disciplines.map(dName => ({
+          name: dName,
+          value: 0 
+        }));
+      }
+
+      // Spezialregeln für Attribute (z.B. Nosferatu)
+      const updatedAttributes = { ...prev.attributes };
+      if (newClan === "Nosferatu") {
+        updatedAttributes.gesellschaftlich.Erscheinungsbild = 0;
+      } else if (prev.info.Clan === "Nosferatu" && updatedAttributes.gesellschaftlich.Erscheinungsbild === 0) {
+        updatedAttributes.gesellschaftlich.Erscheinungsbild = 1;
+      }
+
+      return { 
+        ...prev, 
+        info: updatedInfo, 
+        advantages: updatedAdvantages,
+        attributes: updatedAttributes
+      };
+    });
+  };
+
+  // --- BERECHNUNGEN & VALIDIERUNG ---
+  const calcSpent = (obj, isAttr = false) => {
+    return Object.values(obj).reduce((a, b) => a + (isAttr ? Math.max(0, b - 1) : b), 0);
+  };
+
+  const calcAdvSpent = (list) => list.reduce((a, b) => a + b.value, 0);
+  const calcVirtueSpent = (obj) => Object.values(obj).reduce((a, b) => a + (b - 1), 0);
+
+  const handleAttributeChange = (cat, name, newValue) => {
+    const oldValue = character.attributes[cat][name];
+    if (newValue <= oldValue) {
+      updateStat('attributes', cat, name, newValue);
+      return;
+    }
+    
+    const currentSpent = {
+        körperlich: calcSpent(character.attributes.körperlich, true),
+        gesellschaftlich: calcSpent(character.attributes.gesellschaftlich, true),
+        geistig: calcSpent(character.attributes.geistig, true)
+    };
+    const newSpent = currentSpent[cat] + (newValue - oldValue);
+    const sorted = [
+        cat === 'körperlich' ? newSpent : currentSpent.körperlich,
+        cat === 'gesellschaftlich' ? newSpent : currentSpent.gesellschaftlich,
+        cat === 'geistig' ? newSpent : currentSpent.geistig
+    ].sort((a, b) => b - a);
+
+    if (sorted[0] > 7 || sorted[1] > 5 || sorted[2] > 3) {
+        showToast("Regelverstoß: Verteilung 7/5/3 beachten!");
+        return;
+    }
+    updateStat('attributes', cat, name, newValue);
+  };
+
+  const handleAbilityChange = (cat, name, newValue) => {
+    const oldValue = character.abilities[cat][name];
+    if (newValue <= oldValue) {
+        updateStat('abilities', cat, name, newValue);
+        return;
+    }
+    const currentSpent = {
+        talente: calcSpent(character.abilities.talente),
+        fertigkeiten: calcSpent(character.abilities.fertigkeiten),
+        kenntnisse: calcSpent(character.abilities.kenntnisse)
+    };
+    const newSpent = currentSpent[cat] + (newValue - oldValue);
+    const sorted = [
+        cat === 'talente' ? newSpent : currentSpent.talente,
+        cat === 'fertigkeiten' ? newSpent : currentSpent.fertigkeiten,
+        cat === 'kenntnisse' ? newSpent : currentSpent.kenntnisse
+    ].sort((a, b) => b - a);
+
+    if (sorted[0] > 13 || sorted[1] > 9 || sorted[2] > 5) {
+        showToast("Regelverstoß: Verteilung 13/9/5 beachten!");
+        return;
+    }
+    updateStat('abilities', cat, name, newValue);
+  };
+
+  const updateStat = (cat, sub, f, v) => setCharacter(p => ({
+    ...p, [cat]: { ...p[cat], [sub]: { ...p[cat][sub], [f]: v } }
+  }));
+
+  const addMeritFlaw = (type) => {
+    if (character.extra.vorzügeSchwächen.length >= 6) return;
+    const newItem = { id: Date.now(), type, text: "" };
+    const newList = [...character.extra.vorzügeSchwächen, newItem].sort((a, b) => (a.type === b.type ? 0 : a.type === '+' ? -1 : 1));
+    setCharacter(p => ({...p, extra: {...p.extra, vorzügeSchwächen: newList}}));
+    setShowAddTypeSelection(false);
+  };
+
+  // --- UI KOMPONENTEN ---
+  const DotRating = ({ value, max = 5, onChange, min = 0, disabled = false, alwaysEmpty = false, readOnly = false }) => (
+    <div className={`flex space-x-1.5 items-center ${disabled ? 'opacity-20' : ''}`}>
+      {[...Array(max)].map((_, i) => (
+        <div
+          key={i}
+          onClick={() => {
+            if (disabled || alwaysEmpty || readOnly) return;
+            const newVal = i + 1;
+            onChange(newVal === value ? Math.max(min, value - 1) : newVal);
+          }}
+          className={`w-3.5 h-3.5 rounded-full border border-emerald-900 transition-all
+            ${(disabled || alwaysEmpty) ? 'bg-emerald-950/40 cursor-not-allowed' : 'cursor-pointer'}
+            ${(i < value && !alwaysEmpty) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] scale-110' : 'bg-black/40 hover:bg-emerald-900/40'}`}
+        />
+      ))}
+    </div>
+  );
+
+  const InfoBox = ({ isOpen, text }) => isOpen ? (
+    <div className="mb-6 p-4 border border-emerald-800 bg-black/60 text-xs text-stone-400 leading-relaxed rounded italic animate-in fade-in slide-in-from-top-2">
+      {text}
+    </div>
+  ) : null;
+
+  return (
+    <div className="min-h-screen bg-[#020806] text-stone-300 p-4 md:p-8 font-serif">
+      <div className="max-w-5xl mx-auto border-2 border-emerald-900/50 bg-[#051a11]/95 p-8 md:p-12 shadow-2xl relative overflow-hidden ring-1 ring-emerald-500/10">
         
-        body { 
-            font-family: 'Crimson Pro', serif; 
-            background: radial-gradient(circle at center, #0a2f1f 0%, #051a11 50%, #020806 100%);
-            background-attachment: fixed;
-        }
+        {/* Header */}
+        <header className="text-center mb-12 border-b border-emerald-900/30 pb-6">
+          <h1 className="text-6xl font-bold tracking-[0.2em] text-emerald-500 uppercase mb-2 drop-shadow-md" style={{fontFamily: 'UnifrakturMaguntia, serif'}}>Vampire</h1>
+          <p className="text-[10px] tracking-[0.5em] text-emerald-800 font-bold uppercase">Die Maskerade — Revised Edition</p>
+        </header>
 
-        .revised-card {
-            background-color: rgba(5, 20, 15, 0.95);
-            border: 2px solid #1a4d36;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 50px rgba(0, 50, 30, 0.2);
-            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
-        }
+        {/* Info Area */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 mb-12">
+          {Object.entries(character.info).map(([key, val]) => (
+            <div key={key} className="flex flex-col border-b border-emerald-900/30">
+              <label className="text-[9px] uppercase text-emerald-700 font-bold tracking-widest">{key}</label>
+              {key === "Clan" ? (
+                <select 
+                  value={val} 
+                  onChange={(e) => handleClanChange(e.target.value)}
+                  className="bg-transparent outline-none py-1 text-stone-100 cursor-pointer appearance-none"
+                >
+                  <option value="" disabled className="bg-[#051a11]">Wähle Clan...</option>
+                  <optgroup label="Camarilla" className="bg-[#051a11] text-emerald-600 italic">
+                    {Object.keys(ClanData).slice(0, 7).map(c => <option key={c} value={c} className="bg-[#051a11] text-stone-100 not-italic">{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Sabbat" className="bg-[#051a11] text-emerald-600 italic">
+                    {Object.keys(ClanData).slice(7, 9).map(c => <option key={c} value={c} className="bg-[#051a11] text-stone-100 not-italic">{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Unabhängige" className="bg-[#051a11] text-emerald-600 italic">
+                    {Object.keys(ClanData).slice(9).map(c => <option key={c} value={c} className="bg-[#051a11] text-stone-100 not-italic">{c}</option>)}
+                  </optgroup>
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  value={val} 
+                  onChange={(e) => setCharacter(p => ({...p, info: {...p.info, [key]: e.target.value}}))}
+                  className="bg-transparent outline-none py-1 text-stone-100" 
+                  placeholder="____________________" 
+                />
+              )}
+            </div>
+          ))}
+        </div>
 
-        .header-font {
-            font-family: 'UnifrakturMaguntia', serif;
-        }
+        {/* Attribute Section */}
+        <section className="mb-16">
+          <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-2 mb-8">
+            <h2 className="text-xl font-bold uppercase tracking-[0.4em] text-emerald-500">Attribute</h2>
+            <button onClick={() => setShowAttrInfo(!showAttrInfo)} className="absolute right-0 text-emerald-700 hover:text-emerald-500 transition-colors">
+                <Info size={18} />
+            </button>
+          </div>
+          <InfoBox isOpen={showAttrInfo} text="Attribute werden nach dem Schema 7 / 5 / 3 verteilt (zusätzlich zum jeweils freien ersten Punkt)." />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {Object.entries(character.attributes).map(([cat, fields]) => (
+              <div key={cat} className="space-y-3">
+                <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 pb-1 mb-4 flex justify-between">
+                  <span>{cat}</span>
+                  <span>({calcSpent(fields, true)})</span>
+                </h3>
+                {Object.entries(fields).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center">
+                    <span className="text-sm">{name}</span>
+                    <DotRating 
+                      value={val} 
+                      min={name === "Erscheinungsbild" && character.info.Clan === "Nosferatu" ? 0 : 1}
+                      disabled={name === "Erscheinungsbild" && character.info.Clan === "Nosferatu"}
+                      onChange={(v) => handleAttributeChange(cat, name, v)} 
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
 
-        .dot-filled {
-            background: radial-gradient(circle at 30% 30%, #34d399, #065f46);
-            box-shadow: 0 0 5px rgba(52, 211, 153, 0.4);
-        }
+        {/* Fähigkeiten Section */}
+        <section className="mb-16">
+          <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-2 mb-8">
+            <h2 className="text-xl font-bold uppercase tracking-[0.4em] text-emerald-500">Fähigkeiten</h2>
+            <button onClick={() => setShowAbilInfo(!showAbilInfo)} className="absolute right-0 text-emerald-700 hover:text-emerald-500 transition-colors">
+                <Info size={18} />
+            </button>
+          </div>
+          <InfoBox isOpen={showAbilInfo} text="Fähigkeiten werden nach dem Schema 13 / 9 / 5 verteilt." />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {Object.entries(character.abilities).map(([cat, fields]) => (
+              <div key={cat} className="space-y-2">
+                <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 text-center pb-1 mb-4 flex justify-between">
+                  <span>{cat}</span>
+                  <span>({calcSpent(fields)})</span>
+                </h3>
+                {Object.entries(fields).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center">
+                    <span className="text-xs text-stone-400">{name.replace('_', ' ')}</span>
+                    <DotRating 
+                      value={val} 
+                      onChange={(v) => handleAbilityChange(cat, name, v)} 
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
 
-        .dot-disabled {
-            background: #1a2e25;
-            border-color: #0d1a14;
-            cursor: not-allowed !important;
-        }
+        {/* Vorteile Section */}
+        <section className="mb-16">
+          <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-2 mb-8">
+            <h2 className="text-xl font-bold uppercase tracking-[0.4em] text-emerald-500">Vorteile</h2>
+            <button onClick={() => setShowAdvInfo(!showAdvInfo)} className="absolute right-0 text-emerald-700 hover:text-emerald-500 transition-colors">
+                <Info size={18} />
+            </button>
+          </div>
+          <InfoBox isOpen={showAdvInfo} text="Vorteile werden verteilt nach dem Schema Disziplinen: 3, Hintergründe: 5, Tugenden: 7 (zusätzlich zum freien ersten Punkt)." />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div>
+              <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 pb-1 mb-4 flex justify-between">
+                <span>Disziplinen</span>
+                <span>({calcAdvSpent(character.advantages.disziplinen)})</span>
+              </h3>
+              {character.advantages.disziplinen.map((d, i) => (
+                <div key={i} className="flex justify-between items-center mb-4">
+                  <input className="bg-transparent border-b border-emerald-900/30 text-xs outline-none w-24" value={d.name} onChange={(e) => {
+                      const nl = [...character.advantages.disziplinen]; nl[i].name = e.target.value;
+                      setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
+                  }} />
+                  <DotRating value={d.value} onChange={(v) => {
+                      if (calcAdvSpent(character.advantages.disziplinen) + (v - character.advantages.disziplinen[i].value) > 3 && v > character.advantages.disziplinen[i].value) { showToast("Max. 3 Punkte für Disziplinen!"); return; }
+                      const nl = [...character.advantages.disziplinen]; nl[i].value = v;
+                      setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
+                  }} />
+                </div>
+              ))}
+            </div>
+            <div>
+              <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 pb-1 mb-4 flex justify-between">
+                <span>Hintergründe</span>
+                <span>({calcAdvSpent(character.advantages.hintergründe)})</span>
+              </h3>
+              {character.advantages.hintergründe.map((h, i) => (
+                <div key={i} className="flex justify-between items-center mb-4">
+                  <input className="bg-transparent border-b border-emerald-900/30 text-xs outline-none w-24" value={h.name} onChange={(e) => {
+                      const nl = [...character.advantages.hintergründe]; nl[i].name = e.target.value;
+                      setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
+                  }} />
+                  <DotRating value={h.value} onChange={(v) => {
+                      if (calcAdvSpent(character.advantages.hintergründe) + (v - character.advantages.hintergründe[i].value) > 5 && v > character.advantages.hintergründe[i].value) { showToast("Max. 5 Punkte für Hintergründe!"); return; }
+                      const nl = [...character.advantages.hintergründe]; nl[i].value = v;
+                      setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
+                  }} />
+                </div>
+              ))}
+            </div>
+            <div>
+              <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 pb-1 mb-4 flex justify-between">
+                <span>Tugenden</span>
+                <span>({calcVirtueSpent(character.advantages.tugenden)})</span>
+              </h3>
+              {Object.entries(character.advantages.tugenden).map(([name, val]) => (
+                <div key={name} className="flex justify-between items-center mb-4">
+                  <span className="text-xs font-bold text-stone-500">{name}</span>
+                  <DotRating value={val} min={1} onChange={(v) => {
+                      if (calcVirtueSpent(character.advantages.tugenden) + (v - character.advantages.tugenden[name]) > 7 && v > character.advantages.tugenden[name]) { showToast("Max. 7 Punkte für Tugenden!"); return; }
+                      setCharacter(p => ({...p, advantages: {...p.advantages, tugenden: {...p.advantages.tugenden, [name]: v}}}));
+                  }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        .health-box, .text-box {
-            border: 1px solid #1a4d36;
-            background: rgba(0,0,0,0.3);
-        }
+        {/* Status Section */}
+        <section>
+          <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-2 mb-8">
+            <h2 className="text-xl font-bold uppercase tracking-[0.4em] text-emerald-500">Status</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+            
+            {/* Linke Spalte */}
+            <div className="space-y-12">
+              <div className="text-center">
+                <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Menschlichkeit / Pfad</h3>
+                <div className="flex justify-center">
+                  <DotRating value={character.status.menschlichkeit} max={10} onChange={(v) => setCharacter(p => ({...p, status: {...p.status, menschlichkeit: v}}))} />
+                </div>
+              </div>
 
-        textarea {
-            resize: none;
-            scrollbar-width: thin;
-            scrollbar-color: #1a4d36 transparent;
-        }
+              <div className="text-center">
+                <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4 flex justify-between items-center px-4">
+                  <span>Willenskraft</span>
+                  <span className="text-emerald-500 text-[9px] lowercase opacity-50 italic">Basis: Mut ({character.advantages.tugenden.Mut})</span>
+                </h3>
+                <div className="flex justify-center mb-4">
+                  <DotRating value={character.advantages.tugenden.Mut} max={10} readOnly={true} />
+                </div>
+                <div className="flex justify-center space-x-1.5">
+                  {[...Array(10)].map((_, i) => <div key={i} className="w-6 h-6 border-2 border-emerald-900 bg-black/40" />)}
+                </div>
+              </div>
 
-        /* --- CLAN AUSWAHL STYLING --- */
-        select {
-            background-color: #051a11;
-            color: #d1d5db;
-            border-bottom: 1px solid rgba(6, 95, 70, 0.3);
-            cursor: pointer;
-            appearance: none;
-            outline: none;
-        }
-        
-        select option {
-            background-color: #051a11;
-            color: #d1d5db;
-            font-style: normal;
-            font-weight: normal;
-        }
+              <div>
+                <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Blutvorrat</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-10 gap-1.5">{[...Array(10)].map((_, i) => <div key={i} className="h-5 border border-emerald-500 bg-emerald-900/40 rounded-sm" />)}</div>
+                  <div className="grid grid-cols-10 gap-1.5">{[...Array(10)].map((_, i) => <div key={i} className="h-5 border border-emerald-900 bg-black/40 rounded-sm" />)}</div>
+                </div>
+              </div>
 
-        /* Hier werden die Überschriften (optgroup) gesteuert */
-        optgroup {
-            font-style: italic !important;
-            font-weight: bold !important;
-            color: #10b981 !important; /* Emerald-500 */
-            background-color: #051a11 !important; /* Erzwinge dunklen Hintergrund */
-            text-transform: uppercase;
-            font-size: 0.8rem;
-        }
-
-        @keyframes slideInUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .toast-enter {
-            animation: slideInUp 0.3s ease-out forwards;
-        }
-    </style>
-</head>
-<body class="text-stone-300 min-h-screen py-8 px-4 relative">
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        const DotRating = ({ value, max = 5, onChange, min = 0, disabled = false, alwaysEmpty = false, readOnly = false }) => {
-            return (
-                <div className={`flex space-x-1.5 items-center ${disabled ? 'opacity-30' : ''}`}>
-                    {[...Array(max)].map((_, i) => (
-                        <div
-                            key={i}
-                            onClick={() => {
-                                if (disabled || alwaysEmpty || readOnly) return;
-                                const newValue = i + 1;
-                                onChange(newValue === value ? Math.max(min, value - 1) : newValue);
-                            }}
-                            className={`w-3.5 h-3.5 rounded-full border border-emerald-900 transition-all duration-300
-                                ${disabled || alwaysEmpty || readOnly ? 'dot-disabled' : 'cursor-pointer'}
-                                ${(i < value && !disabled && !alwaysEmpty) ? 'dot-filled scale-110' : 'bg-black/40 hover:bg-emerald-900/40'}`}
-                        />
+              <div>
+                <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4 mt-8">Vorzüge / Schwächen</h3>
+                <div className="space-y-3">
+                    {character.extra.vorzügeSchwächen.map(item => (
+                        <div key={item.id} className="flex items-center">
+                            <span className={`font-bold w-6 text-center text-lg leading-none ${item.type === '+' ? 'text-emerald-500' : 'text-red-500'}`}>{item.type}</span>
+                            <input
+                                type="text"
+                                value={item.text}
+                                onChange={(e) => {
+                                    const nl = character.extra.vorzügeSchwächen.map(i => i.id === item.id ? {...i, text: e.target.value} : i);
+                                    setCharacter(p => ({...p, extra: {...p.extra, vorzügeSchwächen: nl}}));
+                                }}
+                                className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-full text-stone-200"
+                            />
+                        </div>
                     ))}
-                </div>
-            );
-        };
-
-        const InfoBox = ({ isOpen, text }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="mb-6 p-4 border border-emerald-800 bg-black/60 text-xs text-stone-400 leading-relaxed rounded animate-fadeIn">
-                    {text}
-                </div>
-            );
-        };
-
-        const App = () => {
-            const [character, setCharacter] = useState({
-                info: {
-                    Name: "", Spieler: "", Chronik: "",
-                    Wesen: "", Verhalten: "", Clan: "",
-                    Generation: "", Zuflucht: "", Konzept: ""
-                },
-                attributes: {
-                    körperlich: { Körperkraft: 1, Geschick: 1, Widerstandsfähigkeit: 1 },
-                    gesellschaftlich: { Charisma: 1, Manipulation: 1, Erscheinungsbild: 1 },
-                    geistig: { Wahrnehmung: 1, Intelligenz: 1, Geistesschärfe: 1 }
-                },
-                abilities: {
-                    talente: {
-                        Ausdruck: 0, Aufmerksamkeit: 0, Ausflüchte: 0, Ausweichen: 0,
-                        Einschüchtern: 0, Empathie: 0, Führungsqualitäten: 0, Handgemenge: 0,
-                        Sportlichkeit: 0, Szenekenntnis: 0
-                    },
-                    fertigkeiten: {
-                        Etikette: 0, Fahren: 0, Handwerk: 0, Heimlichkeit: 0, Nahkampf: 0,
-                        Schusswaffen: 0, Sicherheit: 0, Tierkunde: 0, Überleben: 0, Vortrag: 0
-                    },
-                    kenntnisse: {
-                        Akademisches_Wissen: 0, Computer: 0, Finanzen: 0, Gesetzeskenntnis: 0,
-                        Linguistik: 0, Medizin: 0, Nachforschungen: 0, Naturwissenschaften: 0,
-                        Okkultismus: 0, Politik: 0
-                    }
-                },
-                advantages: {
-                    disziplinen: [{ name: "", value: 0 }, { name: "", value: 0 }, { name: "", value: 0 }],
-                    hintergründe: [{ name: "", value: 0 }, { name: "", value: 0 }, { name: "", value: 0 }],
-                    tugenden: { Gewissen: 1, Selbstbeherrschung: 1, Mut: 1 }
-                },
-                status: {
-                    gesundheit: [
-                        { label: "Blaue Flecken", penalty: 0, checked: false, disabled: true },
-                        { label: "Verletzt", penalty: -1, checked: false, disabled: true },
-                        { label: "Schwer Verletzt", penalty: -1, checked: false, disabled: true },
-                        { label: "Verwundet", penalty: -2, checked: false, disabled: true },
-                        { label: "Schwer Verwundet", penalty: -2, checked: false, disabled: true },
-                        { label: "Verkrüppelt", penalty: -5, checked: false, disabled: true },
-                        { label: "Außer Gefecht", penalty: "X", checked: false, disabled: true },
-                    ]
-                },
-                extra: { vorzügeSchwächen: [], erfahrung: "" }
-            });
-            const [showAttrInfo, setShowAttrInfo] = useState(false);
-            const [showAbilInfo, setShowAbilInfo] = useState(false);
-            const [showAdvInfo, setShowAdvInfo] = useState(false);
-            const [showAddTypeSelection, setShowAddTypeSelection] = useState(false);
-            const [notification, setNotification] = useState({ text: "", show: false });
-            const timeoutRef = useRef(null);
-
-            const isNosferatu = character.info.Clan === "Nosferatu";
-            const currentWillpower = character.advantages.tugenden.Mut;
-
-            const showToast = (msg) => {
-                setNotification({ text: msg, show: true });
-                if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                timeoutRef.current = setTimeout(() => setNotification({ text: "", show: false }), 4000);
-            };
-
-            const updateInfo = (f, v) => setCharacter(p => ({ ...p, info: { ...p.info, [f]: v } }));
-            const updateStat = (cat, sub, f, v) => setCharacter(p => ({
-                ...p, [cat]: { ...p[cat], [sub]: { ...p[cat][sub], [f]: v } }
-            }));
-
-            const calcAttrSpent = (catData) => {
-                let spent = 0;
-                for (const [attr, val] of Object.entries(catData)) {
-                    if (isNosferatu && attr === "Erscheinungsbild") continue;
-                    spent += Math.max(0, val - 1);
-                }
-                return spent;
-            };
-
-            const calcAbilSpent = (catData) => Object.values(catData).reduce((sum, val) => sum + val, 0);
-            const calcDisziplinenSpent = () => character.advantages.disziplinen.reduce((sum, d) => sum + d.value, 0);
-            const calcHintergruendeSpent = () => character.advantages.hintergründe.reduce((sum, h) => sum + h.value, 0);
-            const calcTugendenSpent = () => Object.values(character.advantages.tugenden).reduce((sum, val) => sum + Math.max(0, val - 1), 0);
-
-            const handleAttributeChange = (cat, name, newValue) => {
-                const oldValue = character.attributes[cat][name];
-                if (newValue <= oldValue) { updateStat('attributes', cat, name, newValue); return; }
-                const currentSpent = {
-                    körperlich: calcAttrSpent(character.attributes.körperlich),
-                    gesellschaftlich: calcAttrSpent(character.attributes.gesellschaftlich),
-                    geistig: calcAttrSpent(character.attributes.geistig)
-                };
-                const newSpent = currentSpent[cat] + (newValue - oldValue);
-                const spentArray = [
-                    cat === 'körperlich' ? newSpent : currentSpent.körperlich,
-                    cat === 'gesellschaftlich' ? newSpent : currentSpent.gesellschaftlich,
-                    cat === 'geistig' ? newSpent : currentSpent.geistig
-                ].sort((a, b) => b - a);
-                if (spentArray[0] > 7 || spentArray[1] > 5 || spentArray[2] > 3) {
-                    showToast("Regelverstoß: Beachte die Verteilung 7/5/3!"); return;
-                }
-                updateStat('attributes', cat, name, newValue);
-            };
-
-            const handleAbilityChange = (cat, name, newValue) => {
-                const oldValue = character.abilities[cat][name];
-                if (newValue <= oldValue) { updateStat('abilities', cat, name, newValue); return; }
-                const currentSpent = {
-                    talente: calcAbilSpent(character.abilities.talente),
-                    fertigkeiten: calcAbilSpent(character.abilities.fertigkeiten),
-                    kenntnisse: calcAbilSpent(character.abilities.kenntnisse)
-                };
-                const newSpent = currentSpent[cat] + (newValue - oldValue);
-                const spentArray = [
-                    cat === 'talente' ? newSpent : currentSpent.talente,
-                    cat === 'fertigkeiten' ? newSpent : currentSpent.fertigkeiten,
-                    cat === 'kenntnisse' ? newSpent : currentSpent.kenntnisse
-                ].sort((a, b) => b - a);
-                if (spentArray[0] > 13 || spentArray[1] > 9 || spentArray[2] > 5) {
-                    showToast("Regelverstoß: Beachte die Verteilung 13/9/5!"); return;
-                }
-                updateStat('abilities', cat, name, newValue);
-            };
-
-            const handleDisciplineChange = (index, newValue) => {
-                const oldValue = character.advantages.disziplinen[index].value;
-                if (newValue <= oldValue) {
-                    const nl = [...character.advantages.disziplinen];
-                    nl[index].value = newValue;
-                    setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
-                    return;
-                }
-                if (calcDisziplinenSpent() + (newValue - oldValue) > 3) {
-                    showToast("Regelverstoß: Maximal 3 Punkte für Disziplinen!");
-                    return;
-                }
-                const nl = [...character.advantages.disziplinen];
-                nl[index].value = newValue;
-                setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
-            };
-
-            const handleBackgroundChange = (index, newValue) => {
-                const oldValue = character.advantages.hintergründe[index].value;
-                if (newValue <= oldValue) {
-                    const nl = [...character.advantages.hintergründe];
-                    nl[index].value = newValue;
-                    setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
-                    return;
-                }
-                if (calcHintergruendeSpent() + (newValue - oldValue) > 5) {
-                    showToast("Regelverstoß: Maximal 5 Punkte für Hintergründe!");
-                    return;
-                }
-                const nl = [...character.advantages.hintergründe];
-                nl[index].value = newValue;
-                setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
-            };
-
-            const handleVirtueChange = (name, newValue) => {
-                const oldValue = character.advantages.tugenden[name];
-                if (newValue <= oldValue) {
-                    updateStat('advantages', 'tugenden', name, newValue);
-                    return;
-                }
-                if (calcTugendenSpent() + (newValue - oldValue) > 7) {
-                    showToast("Regelverstoß: Maximal 7 Punkte für Tugenden!");
-                    return;
-                }
-                updateStat('advantages', 'tugenden', name, newValue);
-            };
-
-            const updateHealth = (i) => {
-                const nh = [...character.status.gesundheit];
-                nh[i].checked = !nh[i].checked;
-                setCharacter(p => ({ ...p, status: { ...p.status, gesundheit: nh } }));
-            };
-            const addMeritFlaw = (type) => {
-                if (character.extra.vorzügeSchwächen.length >= 6) return;
-                const newItem = { id: Date.now(), type, text: "" };
-                const newList = [...character.extra.vorzügeSchwächen, newItem];
-                // Merits (+) immer vor Schwächen (-) einsortieren
-                newList.sort((a, b) => {
-                    if (a.type === b.type) return 0;
-                    return a.type === '+' ? -1 : 1;
-                });
-                setCharacter(p => ({...p, extra: {...p.extra, vorzügeSchwächen: newList}}));
-                setShowAddTypeSelection(false);
-            };
-            const updateMeritFlaw = (id, text) => {
-                const newList = character.extra.vorzügeSchwächen.map(item =>
-                    item.id === id ? { ...item, text } : item
-                );
-                setCharacter(p => ({...p, extra: {...p.extra, vorzügeSchwächen: newList}}));
-            };
-            const clans = {
-                "Camarilla": ["Brujah", "Gangrel", "Malkavian", "Nosferatu", "Toreador", "Tremere", "Ventrue"],
-                "Sabbat": ["Lasombra", "Tzimisce"],
-                "Unabhängige": ["Assamite", "Followers of Set", "Giovanni", "Ravnos"]
-            };
-
-            return (
-                <div className="max-w-5xl mx-auto revised-card p-8 md:p-12 mb-12 relative overflow-hidden">
-                    <header className="text-center mb-12 border-b border-emerald-900/50 pb-6">
-                        <h1 className="text-6xl font-bold tracking-[0.2em] text-emerald-500 uppercase mb-2 drop-shadow-lg header-font">Vampire</h1>
-                        <p className="text-sm tracking-[0.5em] text-emerald-700 font-bold uppercase">Die Maskerade</p>
-                    </header>
-
-                    {/* --- INFO BEREICH --- */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 mb-12">
-                        {Object.entries(character.info).map(([key, val]) => (
-                            <div key={key} className="flex flex-col border-b border-emerald-900/30">
-                                <label className="text-[10px] uppercase text-emerald-600 font-bold tracking-widest">{key}</label>
-                                {key === "Clan" ? (
-                                    <select 
-                                        value={val} 
-                                        onChange={(e) => updateInfo(key, e.target.value)} 
-                                        className="bg-transparent outline-none py-1 text-stone-100"
-                                    >
-                                        <option value="" disabled>Wähle Clan...</option>
-                                        {Object.entries(clans).map(([group, list]) => (
-                                            <optgroup key={group} label={group}>
-                                                {list.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </optgroup>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <input type="text" value={val} onChange={(e) => updateInfo(key, e.target.value)} className="bg-transparent outline-none py-1 text-stone-100" placeholder="____________________" />
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="space-y-16">
-                        {/* Attribute Section */}
-                        <section>
-                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
-                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Attribute</h2>
-                                <button onClick={() => setShowAttrInfo(!showAttrInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
-                            </div>
-                            <InfoBox isOpen={showAttrInfo} text="Attribute werden nach dem Schema 7 / 5 / 3 verteilt (zusätzlich zum jeweils freien ersten Punkt)." />
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                                {Object.entries(character.attributes).map(([cat, fields]) => (
-                                    <div key={cat} className="space-y-2">
-                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 pb-1 mb-3">{cat} ({calcAttrSpent(fields)})</h3>
-                                        {Object.entries(fields).map(([name, val]) => (
-                                            <div key={name} className="flex justify-between items-center group">
-                                                <span className="text-sm group-hover:text-emerald-400 transition-colors">{name}</span>
-                                                <DotRating value={val} min={name === "Erscheinungsbild" && isNosferatu ? 0 : 1} disabled={name === "Erscheinungsbild" && isNosferatu} onChange={(v) => handleAttributeChange(cat, name, v)} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* Fähigkeiten Section */}
-                        <section>
-                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
-                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Fähigkeiten</h2>
-                                <button onClick={() => setShowAbilInfo(!showAbilInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
-                            </div>
-                            <InfoBox isOpen={showAbilInfo} text="Fähigkeiten werden nach dem Schema 13 / 9 / 5 verteilt." />
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                                {Object.entries(character.abilities).map(([cat, fields]) => (
-                                    <div key={cat} className="space-y-1">
-                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 text-center pb-1 mb-3">{cat} ({calcAbilSpent(fields)})</h3>
-                                        {Object.entries(fields).map(([name, val]) => (
-                                            <div key={name} className="flex justify-between items-center">
-                                                <span className="text-xs">{name.replace(/_/g, ' ')}</span>
-                                                <DotRating value={val} onChange={(v) => handleAbilityChange(cat, name, v)} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* Vorteile Section */}
-                        <section>
-                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
-                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Vorteile</h2>
-                                <button onClick={() => setShowAdvInfo(!showAdvInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
-                            </div>
-                            <InfoBox isOpen={showAdvInfo} text="Vorteile werden verteilt nach dem Schema Disziplinen: 3, Hintergründe: 5, Tugenden: 7 (zusätzlich zum freien ersten Punkt)." />
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                                <div>
-                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Disziplinen ({calcDisziplinenSpent()})</h3>
-                                    {character.advantages.disziplinen.map((d, i) => (
-                                        <div key={i} className="flex justify-between items-center mb-3">
-                                            <input value={d.name} onChange={(e) => {const nl = [...character.advantages.disziplinen]; nl[i].name = e.target.value; setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}))}} className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3" />
-                                            <DotRating value={d.value} onChange={(v) => handleDisciplineChange(i, v)} />
-                                        </div>
-                                    ))}
+                    {character.extra.vorzügeSchwächen.length < 6 && (
+                        <div className="mt-2 pl-2">
+                            {!showAddTypeSelection ? (
+                                <button onClick={() => setShowAddTypeSelection(true)} className="text-emerald-700 hover:text-emerald-500 text-xl font-bold">+</button>
+                            ) : (
+                                <div className="flex space-x-3 text-[10px] mt-2">
+                                    <button onClick={() => addMeritFlaw('+')} className="text-emerald-400 hover:underline">+ Vorzug</button>
+                                    <button onClick={() => addMeritFlaw('-')} className="text-red-400 hover:underline">- Schwäche</button>
+                                    <button onClick={() => setShowAddTypeSelection(false)} className="text-stone-500">X</button>
                                 </div>
-                                <div>
-                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Hintergründe ({calcHintergruendeSpent()})</h3>
-                                    {character.advantages.hintergründe.map((h, i) => (
-                                        <div key={i} className="flex justify-between items-center mb-3">
-                                            <input value={h.name} onChange={(e) => {const nl = [...character.advantages.hintergründe]; nl[i].name = e.target.value; setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}))}} className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3" />
-                                            <DotRating value={h.value} onChange={(v) => handleBackgroundChange(i, v)} />
-                                        </div>
-                                    ))}
-                                </div>
-                                <div>
-                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Tugenden ({calcTugendenSpent()})</h3>
-                                    {Object.entries(character.advantages.tugenden).map(([name, val]) => (
-                                        <div key={name} className="flex justify-between items-center mb-4">
-                                            <span className="text-sm font-bold text-stone-400">{name}</span>
-                                            <DotRating value={val} min={1} onChange={(v) => handleVirtueChange(name, v)} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </section>
-                        
-                         {/* Status Section */}
-                        <section>
-                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6 mt-12">
-                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Status</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                                <div className="space-y-12">
-                                    <div className="text-center">
-                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Menschlichkeit / Pfad</h3>
-                                        <div className="flex justify-center">
-                                            <DotRating value={0} max={10} alwaysEmpty={true} />
-                                        </div>
-                                    </div>
-                                    <div className="text-center">
-                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4 flex justify-between items-center">
-                                            <span>Willenskraft</span>
-                                            <span className="text-emerald-500 text-[9px] lowercase opacity-50">Basis = Mut ({currentWillpower})</span>
-                                        </h3>
-                                        <div className="flex justify-center mb-4">
-                                            <DotRating value={currentWillpower} max={10} readOnly={true} />
-                                        </div>
-                                        <div className="flex justify-center space-x-1.5">
-                                            {[...Array(10)].map((_, i) => <div key={i} className="w-6 h-6 border-2 border-emerald-900 bg-black/40" />)}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Blutvorrat</h3>
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-10 gap-1.5">{[...Array(10)].map((_, i) => <div key={i} className="h-5 border border-emerald-500 bg-emerald-900/40 rounded-sm" />)}</div>
-                                            <div className="grid grid-cols-10 gap-1.5">{[...Array(10)].map((_, i) => <div key={i} className="h-5 border border-emerald-900 bg-black/40 rounded-sm" />)}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4 mt-8">Vorzüge / Schwächen</h3>
-                                        <div className="space-y-3">
-                                            {character.extra.vorzügeSchwächen.map(item => (
-                                                <div key={item.id} className="flex items-center">
-                                                    <span className={`font-bold w-6 text-center text-lg leading-none ${item.type === '+' ? 'text-emerald-500' : 'text-red-500'}`}>{item.type}</span>
-                                                    <input
-                                                        type="text"
-                                                        value={item.text}
-                                                        onChange={(e) => updateMeritFlaw(item.id, e.target.value)}
-                                                        className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-full text-stone-200"
-                                                    />
-                                                </div>
-                                            ))}
-                                            {character.extra.vorzügeSchwächen.length < 6 && (
-                                                <div className="mt-2 pl-2">
-                                                    {!showAddTypeSelection ? (
-                                                        <button
-                                                            onClick={() => setShowAddTypeSelection(true)}
-                                                            className="text-emerald-700 hover:text-emerald-500 text-xl font-bold transition-colors"
-                                                            title="Vorzug/Schwäche hinzufügen"
-                                                        >
-                                                            +
-                                                        </button>
-                                                    ) : (
-                                                        <div className="flex space-x-3 text-[11px] mt-2">
-                                                            <button onClick={() => addMeritFlaw('+')} className="bg-emerald-900/40 hover:bg-emerald-800 text-emerald-400 px-2 py-1 rounded border border-emerald-800 transition-colors">
-                                                                + Vorzug
-                                                            </button>
-                                                            <button onClick={() => addMeritFlaw('-')} className="bg-red-900/40 hover:bg-red-800 text-red-400 px-2 py-1 rounded border border-red-800 transition-colors">
-                                                                - Schwäche
-                                                            </button>
-                                                            <button onClick={() => setShowAddTypeSelection(false)} className="text-stone-500 hover:text-stone-300 px-2 py-1">
-                                                                Abbrechen
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-8">
-                                    <div className="p-6 health-box rounded-lg shadow-inner">
-                                        <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-6 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Gesundheit</h3>
-                                        <div className="space-y-2.5">
-                                            {character.status.gesundheit.map((h, i) => (
-                                                <div key={i} className="flex justify-between items-center text-xs" >
-                                                    <span className="font-semibold uppercase tracking-tighter">{h.label}</span>
-                                                    <div className="flex items-center space-x-4">
-                                                        <span className="text-emerald-600 font-bold w-4">{h.penalty !== 0 ? h.penalty : ""}</span>
-                                                        <div className={`w-5 h-5 border-2 border-emerald-900 flex items-center justify-center ${h.checked ? 'bg-emerald-700' : 'bg-black/40'}`}>
-                                                            {h.checked && "/"}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="space-y-2 pt-4">
-                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest text-center border-b border-emerald-900/20 pb-2 mb-4">Erfahrung</h3>
-                                        <div className="flex justify-center">
-                                            <input
-                                                type="text"
-                                                className="bg-transparent border-b border-emerald-900/30 text-center text-sm outline-none w-full max-w-[200px] text-stone-200"
-                                                value={character.extra.erfahrung}
-                                                onChange={(e) => setCharacter(p => ({...p, extra: {...p.extra, erfahrung: e.target.value}}))}
-                                                placeholder="_____________________"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-                    {notification.show && (
-                        <div className="fixed bottom-6 right-6 z-50 toast-enter">
-                            <div className="bg-red-950/90 border-l-4 border-red-600 text-red-200 px-6 py-4 shadow-lg rounded-r flex items-center space-x-3">
-                                <span className="font-bold text-sm">{notification.text}</span>
-                            </div>
+                            )}
                         </div>
                     )}
                 </div>
-            );
-        };
+              </div>
+            </div>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+            {/* Rechte Spalte */}
+            <div className="space-y-12">
+              <div className="p-6 border border-emerald-900 bg-black/30 rounded-lg">
+                <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-6 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Gesundheit</h3>
+                <div className="space-y-3">
+                  {character.status.gesundheit.map((h, i) => (
+                    <div key={i} className="flex justify-between items-center text-xs group cursor-pointer" onClick={() => {
+                        const nl = [...character.status.gesundheit]; nl[i].checked = !nl[i].checked;
+                        setCharacter(p => ({...p, status: {...p.status, gesundheit: nl}}));
+                    }}>
+                      <span className="font-semibold uppercase tracking-tighter group-hover:text-emerald-400">{h.label}</span>
+                      <div className="flex items-center space-x-4">
+                        <span className="text-emerald-700 font-bold w-4 text-right">{h.penalty !== 0 ? h.penalty : ""}</span>
+                        <div className={`w-5 h-5 border-2 border-emerald-900 flex items-center justify-center ${h.checked ? 'bg-emerald-700' : 'bg-black/40'}`}>
+                          {h.checked && <span className="text-stone-100 font-bold">/</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-center pt-8">
+                <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Erfahrung</h3>
+                <input 
+                  type="text" 
+                  value={character.extra.erfahrung}
+                  onChange={(e) => setCharacter(p => ({...p, extra: {...p.extra, erfahrung: e.target.value}}))}
+                  className="bg-transparent border-b border-emerald-900/30 text-center text-sm outline-none w-full max-w-[150px]"
+                  placeholder="________________"
+                />
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* Toast */}
+        {notification && (
+          <div className="fixed bottom-8 right-8 bg-red-950 border border-red-600 text-red-200 px-6 py-3 rounded shadow-2xl flex items-center space-x-3 animate-in slide-in-from-bottom-5">
+            <AlertCircle size={18} />
+            <span className="text-sm font-bold uppercase tracking-wider">{notification}</span>
+          </div>
+        )}
+
+        <footer className="mt-16 text-center text-[9px] text-emerald-900/40 uppercase tracking-[0.3em] border-t border-emerald-900/20 pt-6">
+          System Core Data • Vampire: The Masquerade Character Repository
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
