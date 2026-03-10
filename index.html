@@ -41,10 +41,6 @@
             cursor: not-allowed !important;
         }
 
-        input::placeholder, textarea::placeholder {
-            color: rgba(100, 116, 139, 0.5);
-        }
-
         .health-box, .text-box {
             border: 1px solid #1a4d36;
             background: rgba(0,0,0,0.3);
@@ -63,19 +59,11 @@
             cursor: pointer;
         }
         
-        select optgroup {
-            background-color: #020806;
-            color: #10b981;
-            font-style: normal;
-            font-weight: bold;
-        }
-
         select option {
             background-color: #051a11;
             color: #d1d5db;
         }
 
-        /* Toast Animation */
         @keyframes slideInUp {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -91,22 +79,31 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const DotRating = ({ value, max = 5, onChange, min = 0, disabled = false }) => {
+        const DotRating = ({ value, max = 5, onChange, min = 0, disabled = false, alwaysEmpty = false, readOnly = false }) => {
             return (
                 <div className={`flex space-x-1.5 items-center ${disabled ? 'opacity-30' : ''}`}>
                     {[...Array(max)].map((_, i) => (
                         <div
                             key={i}
                             onClick={() => {
-                                if (disabled) return;
+                                if (disabled || alwaysEmpty || readOnly) return;
                                 const newValue = i + 1;
                                 onChange(newValue === value ? Math.max(min, value - 1) : newValue);
                             }}
                             className={`w-3.5 h-3.5 rounded-full border border-emerald-900 transition-all duration-300
-                                ${disabled ? 'dot-disabled' : 'cursor-pointer'}
-                                ${i < value && !disabled ? 'dot-filled scale-110' : 'bg-black/40 hover:bg-emerald-900/40'}`}
+                                ${disabled || alwaysEmpty || readOnly ? 'dot-disabled' : 'cursor-pointer'}
+                                ${(i < value && !disabled && !alwaysEmpty) ? 'dot-filled scale-110' : 'bg-black/40 hover:bg-emerald-900/40'}`}
                         />
                     ))}
+                </div>
+            );
+        };
+
+        const InfoBox = ({ isOpen, text }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="mb-6 p-4 border border-emerald-800 bg-black/60 text-xs text-stone-400 leading-relaxed rounded animate-fadeIn">
+                    {text}
                 </div>
             );
         };
@@ -145,9 +142,6 @@
                     tugenden: { Gewissen: 1, Selbstbeherrschung: 1, Mut: 1 }
                 },
                 status: {
-                    menschlichkeit: 7,
-                    willenskraft: { gesamt: 5, aktuell: 5 },
-                    blutvorrat: 10,
                     gesundheit: [
                         { label: "Blaue Flecken", penalty: 0, checked: false },
                         { label: "Verletzt", penalty: -1, checked: false },
@@ -158,100 +152,81 @@
                         { label: "Außer Gefecht", penalty: "X", checked: false },
                     ]
                 },
-                extra: {
-                    vorzügeSchwächen: "",
-                    erfahrung: ""
-                }
+                extra: { vorzügeSchwächen: "", erfahrung: "" }
             });
 
             const [showAttrInfo, setShowAttrInfo] = useState(false);
+            const [showAbilInfo, setShowAbilInfo] = useState(false);
+            const [showAdvInfo, setShowAdvInfo] = useState(false);
             const [notification, setNotification] = useState({ text: "", show: false });
             const timeoutRef = useRef(null);
 
             const isNosferatu = character.info.Clan === "Nosferatu";
+            const currentWillpower = character.advantages.tugenden.Mut;
 
             const showToast = (msg) => {
                 setNotification({ text: msg, show: true });
                 if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                timeoutRef.current = setTimeout(() => {
-                    setNotification({ text: "", show: false });
-                }, 4000);
+                timeoutRef.current = setTimeout(() => setNotification({ text: "", show: false }), 4000);
             };
 
-            // Clan-Effekte: Nosferatu Erscheinungsbild anpassen
-            useEffect(() => {
-                setCharacter(p => {
-                    const currentlyNosferatu = p.info.Clan === "Nosferatu";
-                    const currentErscheinungsbild = p.attributes.gesellschaftlich.Erscheinungsbild;
-
-                    if (currentlyNosferatu && currentErscheinungsbild !== 0) {
-                        return { ...p, attributes: { ...p.attributes, gesellschaftlich: { ...p.attributes.gesellschaftlich, Erscheinungsbild: 0 } } };
-                    } else if (!currentlyNosferatu && currentErscheinungsbild === 0) {
-                        return { ...p, attributes: { ...p.attributes, gesellschaftlich: { ...p.attributes.gesellschaftlich, Erscheinungsbild: 1 } } };
-                    }
-                    return p;
-                });
-            }, [character.info.Clan]);
-
             const updateInfo = (f, v) => setCharacter(p => ({ ...p, info: { ...p.info, [f]: v } }));
-            
             const updateStat = (cat, sub, f, v) => setCharacter(p => ({
                 ...p, [cat]: { ...p[cat], [sub]: { ...p[cat][sub], [f]: v } }
             }));
 
-            // --- 7/5/3 Validierung für Attribute ---
-            const calcSpentPoints = (catData) => {
+            const calcAttrSpent = (catData) => {
                 let spent = 0;
                 for (const [attr, val] of Object.entries(catData)) {
-                    // Ignoriere Appearance (0) für Nosferatu bei der Kostenrechnung
                     if (isNosferatu && attr === "Erscheinungsbild") continue;
-                    spent += Math.max(0, val - 1); // Startpunkt (1) abziehen
+                    spent += Math.max(0, val - 1);
                 }
                 return spent;
             };
 
+            const calcAbilSpent = (catData) => Object.values(catData).reduce((sum, val) => sum + val, 0);
+            const calcDisziplinenSpent = () => character.advantages.disziplinen.reduce((sum, d) => sum + d.value, 0);
+            const calcHintergruendeSpent = () => character.advantages.hintergründe.reduce((sum, h) => sum + h.value, 0);
+            const calcTugendenSpent = () => Object.values(character.advantages.tugenden).reduce((sum, val) => sum + Math.max(0, val - 1), 0);
+
             const handleAttributeChange = (cat, name, newValue) => {
                 const oldValue = character.attributes[cat][name];
-                
-                // Reduzieren von Punkten ist immer erlaubt
-                if (newValue <= oldValue) {
-                    updateStat('attributes', cat, name, newValue);
-                    return;
-                }
-
+                if (newValue <= oldValue) { updateStat('attributes', cat, name, newValue); return; }
                 const currentSpent = {
-                    körperlich: calcSpentPoints(character.attributes.körperlich),
-                    gesellschaftlich: calcSpentPoints(character.attributes.gesellschaftlich),
-                    geistig: calcSpentPoints(character.attributes.geistig)
+                    körperlich: calcAttrSpent(character.attributes.körperlich),
+                    gesellschaftlich: calcAttrSpent(character.attributes.gesellschaftlich),
+                    geistig: calcAttrSpent(character.attributes.geistig)
                 };
-
-                const pointDifference = newValue - oldValue;
-                const newSpentInCat = currentSpent[cat] + pointDifference;
-
+                const newSpent = currentSpent[cat] + (newValue - oldValue);
                 const spentArray = [
-                    cat === 'körperlich' ? newSpentInCat : currentSpent.körperlich,
-                    cat === 'gesellschaftlich' ? newSpentInCat : currentSpent.gesellschaftlich,
-                    cat === 'geistig' ? newSpentInCat : currentSpent.geistig
-                ];
-
-                // Sortiere absteigend, um gegen 7/5/3 zu prüfen
-                spentArray.sort((a, b) => b - a);
-
-                if (spentArray[0] > 7) {
-                    showToast("Regelverstoß: Du kannst maximal 7 Punkte im Primärattribut vergeben!");
-                    return;
+                    cat === 'körperlich' ? newSpent : currentSpent.körperlich,
+                    cat === 'gesellschaftlich' ? newSpent : currentSpent.gesellschaftlich,
+                    cat === 'geistig' ? newSpent : currentSpent.geistig
+                ].sort((a, b) => b - a);
+                if (spentArray[0] > 7 || spentArray[1] > 5 || spentArray[2] > 3) {
+                    showToast("Regelverstoß: Beachte die Verteilung 7/5/3!"); return;
                 }
-                if (spentArray[1] > 5) {
-                    showToast("Regelverstoß: Du kannst maximal 5 Punkte im Sekundärattribut vergeben!");
-                    return;
-                }
-                if (spentArray[2] > 3) {
-                    showToast("Regelverstoß: Du kannst maximal 3 Punkte im Terziärattribut vergeben!");
-                    return;
-                }
-
-                // Wenn alles gültig ist, Wert übernehmen
                 updateStat('attributes', cat, name, newValue);
+            };
+
+            const handleAbilityChange = (cat, name, newValue) => {
+                const oldValue = character.abilities[cat][name];
+                if (newValue <= oldValue) { updateStat('abilities', cat, name, newValue); return; }
+                const currentSpent = {
+                    talente: calcAbilSpent(character.abilities.talente),
+                    fertigkeiten: calcAbilSpent(character.abilities.fertigkeiten),
+                    kenntnisse: calcAbilSpent(character.abilities.kenntnisse)
+                };
+                const newSpent = currentSpent[cat] + (newValue - oldValue);
+                const spentArray = [
+                    cat === 'talente' ? newSpent : currentSpent.talente,
+                    cat === 'fertigkeiten' ? newSpent : currentSpent.fertigkeiten,
+                    cat === 'kenntnisse' ? newSpent : currentSpent.kenntnisse
+                ].sort((a, b) => b - a);
+                if (spentArray[0] > 13 || spentArray[1] > 9 || spentArray[2] > 5) {
+                    showToast("Regelverstoß: Beachte die Verteilung 13/9/5!"); return;
+                }
+                updateStat('abilities', cat, name, newValue);
             };
 
             const updateHealth = (i) => {
@@ -260,7 +235,11 @@
                 setCharacter(p => ({ ...p, status: { ...p.status, gesundheit: nh } }));
             };
 
-            const updateExtra = (f, v) => setCharacter(p => ({ ...p, extra: { ...p.extra, [f]: v } }));
+            const clans = {
+                "Camarilla": ["Brujah", "Gangrel", "Malkavian", "Nosferatu", "Toreador", "Tremere", "Ventrue"],
+                "Sabbat": ["Lasombra", "Tzimisce"],
+                "Unabhängige": ["Assamite", "Followers of Set", "Giovanni", "Ravnos"]
+            };
 
             return (
                 <div className="max-w-5xl mx-auto revised-card p-8 md:p-12 mb-12 relative overflow-hidden">
@@ -275,40 +254,16 @@
                             <div key={key} className="flex flex-col border-b border-emerald-900/30">
                                 <label className="text-[10px] uppercase text-emerald-600 font-bold tracking-widest">{key}</label>
                                 {key === "Clan" ? (
-                                    <select 
-                                        value={val} 
-                                        onChange={(e) => updateInfo(key, e.target.value)}
-                                        className="bg-transparent outline-none py-1 text-stone-100"
-                                    >
-                                        <option value="" disabled>Wähle einen Clan...</option>
-                                        <optgroup label="Camarilla">
-                                            <option value="Brujah">Brujah</option>
-                                            <option value="Gangrel">Gangrel</option>
-                                            <option value="Malkavian">Malkavian</option>
-                                            <option value="Nosferatu">Nosferatu</option>
-                                            <option value="Toreador">Toreador</option>
-                                            <option value="Tremere">Tremere</option>
-                                            <option value="Ventrue">Ventrue</option>
-                                        </optgroup>
-                                        <optgroup label="Sabbat">
-                                            <option value="Lasombra">Lasombra</option>
-                                            <option value="Tzimisce">Tzimisce</option>
-                                        </optgroup>
-                                        <optgroup label="Unabhängige">
-                                            <option value="Assamite">Assamite</option>
-                                            <option value="Followers of Set">Followers of Set</option>
-                                            <option value="Giovanni">Giovanni</option>
-                                            <option value="Ravnos">Ravnos</option>
-                                        </optgroup>
+                                    <select value={val} onChange={(e) => updateInfo(key, e.target.value)} className="bg-transparent outline-none py-1 text-stone-100">
+                                        <option value="" disabled>Wähle...</option>
+                                        {Object.entries(clans).map(([group, list]) => (
+                                            <optgroup key={group} label={group}>
+                                                {list.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </optgroup>
+                                        ))}
                                     </select>
                                 ) : (
-                                    <input
-                                        type="text"
-                                        value={val}
-                                        onChange={(e) => updateInfo(key, e.target.value)}
-                                        className="bg-transparent outline-none py-1 text-stone-100 placeholder-stone-700"
-                                        placeholder="____________________"
-                                    />
+                                    <input type="text" value={val} onChange={(e) => updateInfo(key, e.target.value)} className="bg-transparent outline-none py-1 text-stone-100" placeholder="____________________" />
                                 )}
                             </div>
                         ))}
@@ -319,69 +274,39 @@
                         <section>
                             <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
                                 <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Attribute</h2>
-                                <button 
-                                    onClick={() => setShowAttrInfo(!showAttrInfo)}
-                                    className={`absolute right-0 w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold transition-colors
-                                        ${showAttrInfo ? 'bg-emerald-600 border-emerald-400 text-stone-900' : 'border-emerald-700 text-emerald-600 hover:bg-emerald-900/40 hover:text-emerald-400'}`}
-                                    title="Punkteverteilung Info"
-                                >
-                                    i
-                                </button>
+                                <button onClick={() => setShowAttrInfo(!showAttrInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
                             </div>
-
-                            {/* Info Box */}
-                            {showAttrInfo && (
-                                <div className="mb-8 p-5 border border-emerald-800 bg-black/40 rounded shadow-inner text-sm text-stone-300">
-                                    <h4 className="font-bold text-emerald-500 mb-2 uppercase tracking-widest text-xs">Regeln zur Verteilung (7 / 5 / 3)</h4>
-                                    <p className="mb-2">Wähle eine Gewichtung für deine Kategorien. Du kannst <strong>7 Punkte</strong> für das Primärattribut, <strong>5 Punkte</strong> für das Sekundär- und <strong>3 Punkte</strong> für das Terziärattribut frei verteilen.</p>
-                                    <ul className="list-disc pl-5 space-y-1 text-stone-400">
-                                        <li>Der jeweils erste Startpunkt (1) zählt <strong>nicht</strong> gegen dieses Limit.</li>
-                                        <li>Nosferatu erhalten <strong>keinen</strong> Bonus oder Ausgleich für ihr blockiertes Erscheinungsbild (0).</li>
-                                    </ul>
-                                </div>
-                            )}
-
+                            <InfoBox isOpen={showAttrInfo} text="Attribute werden nach dem Schema 7 / 5 / 3 verteilt (zusätzlich zum jeweils freien ersten Punkt). Wähle eine Primär-, Sekundär- und Tertiärkategorie." />
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                                {Object.entries(character.attributes).map(([cat, fields]) => {
-                                    const spent = calcSpentPoints(fields);
-                                    return (
-                                        <div key={cat} className="space-y-2">
-                                            <div className="flex justify-between items-end border-b border-emerald-900/20 mb-3 pb-1">
-                                                <h3 className="text-[11px] font-bold text-emerald-800 uppercase tracking-tighter italic">{cat}</h3>
-                                                {showAttrInfo && <span className="text-[10px] text-emerald-600/70 font-bold">{spent} Pkt.</span>}
+                                {Object.entries(character.attributes).map(([cat, fields]) => (
+                                    <div key={cat} className="space-y-2">
+                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 pb-1 mb-3">{cat} ({calcAttrSpent(fields)})</h3>
+                                        {Object.entries(fields).map(([name, val]) => (
+                                            <div key={name} className="flex justify-between items-center group">
+                                                <span className="text-sm group-hover:text-emerald-400 transition-colors">{name}</span>
+                                                <DotRating value={val} min={name === "Erscheinungsbild" && isNosferatu ? 0 : 1} disabled={name === "Erscheinungsbild" && isNosferatu} onChange={(v) => handleAttributeChange(cat, name, v)} />
                                             </div>
-                                            
-                                            {Object.entries(fields).map(([name, val]) => {
-                                                const isDisabled = name === "Erscheinungsbild" && isNosferatu;
-                                                return (
-                                                    <div key={name} className={`flex justify-between items-center group ${isDisabled ? 'text-stone-600 italic' : ''}`}>
-                                                        <span className={`text-sm ${!isDisabled && 'group-hover:text-emerald-400'} transition-colors`}>{name}</span>
-                                                        <DotRating 
-                                                            value={val} 
-                                                            min={isDisabled ? 0 : 1} 
-                                                            disabled={isDisabled}
-                                                            onChange={(v) => handleAttributeChange(cat, name, v)} 
-                                                        />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )
-                                })}
+                                        ))}
+                                    </div>
+                                ))}
                             </div>
                         </section>
 
                         {/* Fähigkeiten */}
                         <section>
-                            <h2 className="text-xl font-bold border-y border-emerald-900/50 py-1 mb-6 text-center uppercase tracking-[0.3em] text-emerald-500">Fähigkeiten</h2>
+                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
+                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Fähigkeiten</h2>
+                                <button onClick={() => setShowAbilInfo(!showAbilInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
+                            </div>
+                            <InfoBox isOpen={showAbilInfo} text="Fähigkeiten werden nach dem Schema 13 / 9 / 5 verteilt. Wähle eine Primär-, Sekundär- und Tertiärkategorie für Talente, Fertigkeiten und Kenntnisse." />
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                                 {Object.entries(character.abilities).map(([cat, fields]) => (
                                     <div key={cat} className="space-y-1">
-                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-3 text-center italic border-b border-emerald-900/20">{cat}</h3>
+                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic border-b border-emerald-900/20 text-center pb-1 mb-3">{cat} ({calcAbilSpent(fields)})</h3>
                                         {Object.entries(fields).map(([name, val]) => (
-                                            <div key={name} className="flex justify-between items-center group">
-                                                <span className="text-xs group-hover:text-emerald-400 transition-colors">{name.replace(/_/g, ' ')}</span>
-                                                <DotRating value={val} onChange={(v) => updateStat('abilities', cat, name, v)} />
+                                            <div key={name} className="flex justify-between items-center">
+                                                <span className="text-xs">{name.replace(/_/g, ' ')}</span>
+                                                <DotRating value={val} onChange={(v) => handleAbilityChange(cat, name, v)} />
                                             </div>
                                         ))}
                                     </div>
@@ -389,139 +314,121 @@
                             </div>
                         </section>
 
-                        {/* Vorteile & Tugenden */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 pt-4">
-                            <section className="md:col-span-2">
-                                <h2 className="text-xl font-bold border-b border-emerald-800 mb-6 uppercase tracking-widest text-emerald-500">Vorteile</h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                                    <div>
-                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-4 border-b border-emerald-900/20">Disziplinen</h3>
-                                        {character.advantages.disziplinen.map((d, i) => (
-                                            <div key={i} className="flex justify-between items-center mb-3">
-                                                <input className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3 focus:border-emerald-500" placeholder="________________" />
-                                                <DotRating value={d.value} onChange={(v) => {
-                                                    const nl = [...character.advantages.disziplinen]; nl[i].value = v;
-                                                    setCharacter(p => ({ ...p, advantages: { ...p.advantages, disziplinen: nl } }));
-                                                }} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-[11px] font-bold text-emerald-800 uppercase mb-4 border-b border-emerald-900/20">Hintergründe</h3>
-                                        {character.advantages.hintergründe.map((h, i) => (
-                                            <div key={i} className="flex justify-between items-center mb-3">
-                                                <input className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3 focus:border-emerald-500" placeholder="________________" />
-                                                <DotRating value={h.value} onChange={(v) => {
-                                                    const nl = [...character.advantages.hintergründe]; nl[i].value = v;
-                                                    setCharacter(p => ({ ...p, advantages: { ...p.advantages, hintergründe: nl } }));
-                                                }} />
-                                            </div>
-                                        ))}
-                                    </div>
+                        {/* Vorteile */}
+                        <section>
+                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6">
+                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Vorteile</h2>
+                                <button onClick={() => setShowAdvInfo(!showAdvInfo)} className="absolute right-0 w-6 h-6 rounded-full border border-emerald-700 text-emerald-600 flex items-center justify-center text-xs font-bold">i</button>
+                            </div>
+                            <InfoBox isOpen={showAdvInfo} text="Vorteile haben feste Punktwerte bei der Erschaffung: Disziplinen (3 Punkte), Hintergründe (5 Punkte) und Tugenden (7 Punkte zusätzlich zu den Basispunkten)." />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                                <div>
+                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Disziplinen ({calcDisziplinenSpent()})</h3>
+                                    {character.advantages.disziplinen.map((d, i) => (
+                                        <div key={i} className="flex justify-between items-center mb-3">
+                                            <input value={d.name} onChange={(e) => {const nl = [...character.advantages.disziplinen]; nl[i].name = e.target.value; setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}))}} className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3" placeholder="" />
+                                            <DotRating value={d.value} onChange={(v) => {
+                                                const diff = v - character.advantages.disziplinen[i].value;
+                                                if (v > character.advantages.disziplinen[i].value && calcDisziplinenSpent() + diff > 3) { showToast("Maximal 3 Punkte für Disziplinen!"); return; }
+                                                const nl = [...character.advantages.disziplinen]; nl[i].value = v; setCharacter(p => ({...p, advantages: {...p.advantages, disziplinen: nl}}));
+                                            }} />
+                                        </div>
+                                    ))}
                                 </div>
-                            </section>
-                            <section>
-                                <h2 className="text-xl font-bold border-b border-emerald-800 mb-6 uppercase tracking-widest text-emerald-500">Tugenden</h2>
-                                {Object.entries(character.advantages.tugenden).map(([name, val]) => (
-                                    <div key={name} className="flex justify-between items-center mb-6 text-sm">
-                                        <span className="font-bold text-stone-400">{name}</span>
-                                        <DotRating value={val} min={1} onChange={(v) => updateStat('advantages', 'tugenden', name, v)} />
-                                    </div>
-                                ))}
-                            </section>
-                        </div>
+                                <div>
+                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Hintergründe ({calcHintergruendeSpent()})</h3>
+                                    {character.advantages.hintergründe.map((h, i) => (
+                                        <div key={i} className="flex justify-between items-center mb-3">
+                                            <input value={h.name} onChange={(e) => {const nl = [...character.advantages.hintergründe]; nl[i].name = e.target.value; setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}))}} className="bg-transparent border-b border-emerald-900/30 text-sm outline-none w-2/3" placeholder="" />
+                                            <DotRating value={h.value} onChange={(v) => {
+                                                const diff = v - character.advantages.hintergründe[i].value;
+                                                if (v > character.advantages.hintergründe[i].value && calcHintergruendeSpent() + diff > 5) { showToast("Maximal 5 Punkte für Hintergründe!"); return; }
+                                                const nl = [...character.advantages.hintergründe]; nl[i].value = v; setCharacter(p => ({...p, advantages: {...p.advantages, hintergründe: nl}}));
+                                            }} />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <h3 className="text-[11px] font-bold text-emerald-800 uppercase italic text-center border-b border-emerald-900/20 pb-1 mb-4">Tugenden ({calcTugendenSpent()})</h3>
+                                    {Object.entries(character.advantages.tugenden).map(([name, val]) => (
+                                        <div key={name} className="flex justify-between items-center mb-4">
+                                            <span className="text-sm font-bold text-stone-400">{name}</span>
+                                            <DotRating value={val} min={1} onChange={(v) => {
+                                                const diff = v - character.advantages.tugenden[name];
+                                                if (v > character.advantages.tugenden[name] && calcTugendenSpent() + diff > 7) { showToast("Maximal 7 Punkte für Tugenden!"); return; }
+                                                updateStat('advantages', 'tugenden', name, v);
+                                            }} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
 
-                        {/* Status Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-16 pt-12 border-t border-emerald-900/50">
-                            <div className="space-y-10">
-                                <div>
-                                    <h3 className="text-[10px] font-bold text-emerald-700 uppercase mb-3 tracking-widest border-b border-emerald-900/20 text-center">Menschlichkeit / Pfad</h3>
-                                    <div className="flex justify-center py-2">
-                                        <DotRating value={character.status.menschlichkeit} max={10} onChange={(v) => setCharacter(p => ({ ...p, status: { ...p.status, menschlichkeit: v } }))} />
+                        {/* Status */}
+                        <section>
+                            <div className="relative flex justify-center items-center border-y border-emerald-900/50 py-1 mb-6 mt-12">
+                                <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-emerald-500">Status</h2>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                                <div className="space-y-12">
+                                    <div className="text-center">
+                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Menschlichkeit / Pfad</h3>
+                                        <div className="flex justify-center">
+                                            <DotRating value={0} max={10} alwaysEmpty={true} />
+                                        </div>
+                                    </div>
+                                    <div className="text-center">
+                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4 flex justify-between items-center">
+                                            <span>Willenskraft</span>
+                                            <span className="text-emerald-500 text-[9px] lowercase opacity-50">Basis = Mut ({currentWillpower})</span>
+                                        </h3>
+                                        <div className="flex justify-center mb-4">
+                                            <DotRating value={currentWillpower} max={10} readOnly={true} />
+                                        </div>
+                                        <div className="flex justify-center space-x-1.5">
+                                            {[...Array(10)].map((_, i) => <div key={i} className="w-6 h-6 border-2 border-emerald-900 bg-black/40" />)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest border-b border-emerald-900/20 mb-4">Blutvorrat</h3>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-10 gap-1.5">{[...Array(10)].map((_, i) => <div key={i} className="h-5 border border-emerald-500 bg-emerald-900/40 rounded-sm" />)}</div>
+                                            <div className="grid grid-cols-10 gap-1.5">{[...Array(10)].map((_, i) => <div key={i} className="h-5 border border-emerald-900 bg-black/40 rounded-sm" />)}</div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-[10px] font-bold text-emerald-700 uppercase mb-3 tracking-widest border-b border-emerald-900/20 flex justify-between">
-                                        <span>Willenskraft</span>
-                                        <span className="text-emerald-500">{character.status.willenskraft.aktuell}/{character.status.willenskraft.gesamt}</span>
-                                    </h3>
-                                    <div className="flex flex-col items-center space-y-4">
-                                        <DotRating value={character.status.willenskraft.gesamt} max={10} onChange={(v) => setCharacter(p => ({ ...p, status: { ...p.status, willenskraft: { ...p.status.willenskraft, gesamt: v } } }))} />
-                                        <div className="flex space-x-1.5">
-                                            {[...Array(10)].map((_, i) => (
-                                                <div key={i} onClick={() => setCharacter(p => ({ ...p, status: { ...p.status, willenskraft: { ...p.status.willenskraft, aktuell: i < p.status.willenskraft.gesamt ? i + 1 : p.status.willenskraft.aktuell } } }))}
-                                                    className={`w-6 h-6 border-2 border-emerald-900 flex items-center justify-center cursor-pointer transition-all
-                                                    ${i < character.status.willenskraft.aktuell ? 'bg-emerald-600 text-black font-bold' : 'bg-black/40 text-emerald-900/20'}`}>
-                                                    {i < character.status.willenskraft.gesamt && "X"}
+
+                                <div className="space-y-8">
+                                    <div className="p-6 health-box rounded-lg shadow-inner">
+                                        <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-6 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Gesundheit</h3>
+                                        <div className="space-y-2.5">
+                                            {character.status.gesundheit.map((h, i) => (
+                                                <div key={i} className="flex justify-between items-center text-xs cursor-pointer" onClick={() => updateHealth(i)}>
+                                                    <span className="font-semibold uppercase tracking-tighter">{h.label}</span>
+                                                    <div className="flex items-center space-x-4">
+                                                        <span className="text-emerald-600 font-bold w-4">{h.penalty !== 0 ? h.penalty : ""}</span>
+                                                        <div className={`w-5 h-5 border-2 border-emerald-900 flex items-center justify-center ${h.checked ? 'bg-emerald-700' : 'bg-black/40'}`}>
+                                                            {h.checked && "/"}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <h3 className="text-[10px] font-bold text-emerald-700 uppercase mb-3 tracking-widest border-b border-emerald-900/20">Blutvorrat</h3>
-                                    <div className="grid grid-cols-10 gap-1.5">
-                                        {[...Array(20)].map((_, i) => (
-                                            <div key={i} onClick={() => setCharacter(p => ({ ...p, status: { ...p.status, blutvorrat: i + 1 } }))}
-                                                className={`h-5 border border-emerald-900 rounded-sm cursor-pointer transition-all 
-                                                ${i < character.status.blutvorrat ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] scale-95' : 'bg-black/60'}`} />
-                                        ))}
+                                    <div className="space-y-2">
+                                        <h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest text-center">Vorzüge / Schwächen</h3>
+                                        <textarea className="w-full h-40 p-3 text-sm text-box rounded outline-none text-stone-200" value={character.extra.vorzügeSchwächen} onChange={(e) => setCharacter(p => ({...p, extra: {...p.extra, vorzügeSchwächen: e.target.value}}))} />
                                     </div>
                                 </div>
-
-                                <div className="pt-4">
-                                    <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-3 tracking-widest border-b border-emerald-900/50 pb-2 italic text-center">Vorzüge / Schwächen</h3>
-                                    <textarea 
-                                        className="w-full h-48 p-3 text-sm text-stone-200 text-box rounded outline-none focus:border-emerald-500 transition-colors"
-                                        placeholder="Deine Vorzüge und Schwächen hier eintragen..."
-                                        value={character.extra.vorzügeSchwächen}
-                                        onChange={(e) => updateExtra('vorzügeSchwächen', e.target.value)}
-                                    ></textarea>
-                                </div>
                             </div>
-
-                            <div className="space-y-8">
-                                <div className="p-6 health-box rounded-lg shadow-inner">
-                                    <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-6 tracking-widest border-b border-emerald-900/50 pb-2 italic">Gesundheit</h3>
-                                    <div className="space-y-2.5">
-                                        {character.status.gesundheit.map((h, i) => (
-                                            <div key={i} className="flex justify-between items-center text-xs group cursor-pointer" onClick={() => updateHealth(i)}>
-                                                <div className="flex-1 flex justify-between pr-6 border-b border-emerald-900/10 pb-1 group-hover:text-emerald-400">
-                                                    <span className="font-semibold">{h.label}</span>
-                                                    <span className="text-emerald-700 italic font-bold">{h.penalty !== 0 ? h.penalty : ' '}</span>
-                                                </div>
-                                                <div className={`w-5 h-5 border-2 border-emerald-900 flex items-center justify-center transition-all
-                                                    ${h.checked ? 'bg-emerald-700 text-black shadow-lg scale-110 rotate-3' : 'bg-black/40'}`}>
-                                                    {h.checked && <span className="font-black text-sm">/</span>}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="p-6 health-box rounded-lg shadow-inner">
-                                    <h3 className="text-[11px] font-bold text-emerald-500 uppercase mb-4 tracking-widest border-b border-emerald-900/50 pb-2 italic">Erfahrung</h3>
-                                    <textarea 
-                                        className="w-full h-32 p-3 text-sm text-stone-200 bg-transparent outline-none focus:text-emerald-400"
-                                        placeholder="Gesamt / Ausgegeben..."
-                                        value={character.extra.erfahrung}
-                                        onChange={(e) => updateExtra('erfahrung', e.target.value)}
-                                    ></textarea>
-                                </div>
-                            </div>
-                        </div>
+                        </section>
                     </div>
 
-                    <footer className="mt-20 text-[10px] text-emerald-900 text-center uppercase tracking-[0.2em] font-bold border-t border-emerald-900/20 pt-8">
-                        Vampire: The Masquerade — Revised Edition Aesthetic
-                    </footer>
-
-                    {/* Toast Notification */}
                     {notification.show && (
                         <div className="fixed bottom-6 right-6 z-50 toast-enter">
-                            <div className="bg-red-950/90 border-l-4 border-red-600 text-red-200 px-6 py-4 shadow-[0_0_20px_rgba(220,38,38,0.3)] rounded-r flex items-center space-x-3">
-                                <span className="text-xl font-bold">!</span>
-                                <span className="text-sm">{notification.text}</span>
+                            <div className="bg-red-950/90 border-l-4 border-red-600 text-red-200 px-6 py-4 shadow-lg rounded-r flex items-center space-x-3">
+                                <span className="font-bold text-sm">{notification.text}</span>
                             </div>
                         </div>
                     )}
